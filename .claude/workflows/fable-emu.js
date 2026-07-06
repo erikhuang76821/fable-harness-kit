@@ -110,8 +110,9 @@ const VERDICT = {
 
 const REVIEW = {
   type: 'object',
-  required: ['approved', 'findings'],
+  required: ['echo', 'approved', 'findings'],
   properties: {
+    echo: { type: 'string', description: '一句話複述本次審查的具體目標(審的是什麼變更、對照什麼標準)。接地檢查:寫不出具體複述 = 你沒有真的收到審查素材;禁止泛用句' },
     approved: { type: 'boolean' },
     findings: {
       type: 'array',
@@ -488,9 +489,18 @@ const reviewPrompt =
   `任務目標:${task}\n完成定義:${u.definition_of_done.join(' / ')}\n` +
   `只回報有實質影響的問題,風格瑣事標 minor。`
 
-async function tryReview(agentType, label) {
+// 兩階段規格律師(2026-07 跨模型審查定案):先獨立推導再對照,防「被作者敘事錨定」;
+// 裁掉的是作者的說服(推理/辯詞),不是判斷所需的事實(任務與完成定義照給)
+const specLawyerPrompt =
+  `你是規格律師,兩階段審查:\n` +
+  `階段一(先不看任何實作):根據下列任務與完成定義,獨立推導「正確的實作應該具備哪些可觀察行為」,列成清單。\n` +
+  `階段二:才審查目前工作區的所有未提交變更,逐條對照你的清單,抓「做了但不是要的」與「要的但沒做」。\n` +
+  `你的立場是反方:預設實作偏離了規格。注意區分「刻意的工程取捨」與「真的偏離」——取捨可列出但標 minor。\n` +
+  `每個發現必須附 file:line 或指令輸出佐證。\n任務:${task}\n完成定義:${u.definition_of_done.join(' / ')}`
+
+async function tryReview(agentType, label, prompt) {
   try {
-    return await agent(reviewPrompt, { agentType, schema: REVIEW, phase: 'CrossReview', label })
+    return await agent(prompt, { agentType, schema: REVIEW, phase: 'CrossReview', label })
   } catch (e) {
     log(`${label} 不可用,略過:${e.message}`)
     return null
@@ -498,22 +508,33 @@ async function tryReview(agentType, label) {
 }
 
 // 預設單一跨模型審查者(取第一個可用);args.thorough 才雙評
+// 雙評採非對稱雙工:codex 走兩階段規格律師(防錨定),agy 走全事實對抗審查(冗餘覆蓋)
 let reviews = []
 if (args && args.thorough) {
   reviews = (await parallel([
-    () => tryReview('codex:codex-rescue', 'review:codex'),
-    () => tryReview('agy-bridge', 'review:agy'),
+    () => tryReview('codex:codex-rescue', 'review:codex-spec-lawyer', specLawyerPrompt),
+    () => tryReview('agy-bridge', 'review:agy', reviewPrompt),
   ])).filter(Boolean)
 } else {
-  const r1 = await tryReview('codex:codex-rescue', 'review:codex')
+  const r1 = await tryReview('codex:codex-rescue', 'review:codex', reviewPrompt)
   if (r1) { reviews = [r1] } else {
-    const r2 = await tryReview('agy-bridge', 'review:agy')
+    const r2 = await tryReview('agy-bridge', 'review:agy', reviewPrompt)
     if (r2) reviews = [r2]
   }
 }
 
-// 跨模型 CLI 都不在時,退回同家族「人格審查團」:用資訊不對稱與證據通道差異買回獨立性
-// (規格律師不看實作理由、回歸獵人不看任務目的)。權重相同的共享盲點補不回——
+// echo 接地檢查:半壞的橋接可能產出格式正確但無內容的審查(2026-07 Agy 橋接空轉實例)——
+// 複述不出審查目標的審查作廢,寧可觸發降級/阻斷也不收虛假背書
+const groundedOnly = rs => rs.filter(r => {
+  const grounded = r && typeof r.echo === 'string' && r.echo.trim().length >= 10
+  if (!grounded) log('審查者 echo 接地失敗(無法具體複述審查目標),該份審查作廢')
+  return grounded
+})
+reviews = groundedOnly(reviews)
+
+// 跨模型 CLI 都不在時,退回同家族「人格審查團」:用資訊不對稱與證據通道差異買回獨立性。
+// 裁切原則(2026-07 Codex+Agy 雙審定案):裁掉作者的說服(推理/辯詞),不裁判斷所需的事實
+// (任務一句話照給,否則「任務要求的行為改變」會被誤判為回歸)。權重相同的共享盲點補不回——
 // 靠後段仲裁強制讀 code 攔截,並在留痕與最終回報明示降級成色
 let reviewMode = 'cross-model'
 if (!reviews.length) {
@@ -527,7 +548,9 @@ if (!reviews.length) {
       `任務:${task}\n完成定義:${u.definition_of_done.join(' / ')}`,
       { model: 'sonnet', schema: REVIEW, phase: 'CrossReview', label: 'review:spec-lawyer' }),
     () => agent(
-      `你是回歸獵人。審查目前工作區的所有未提交變更。刻意不告訴你這次修改的目的——你的工作不是評價改得有沒有道理,而是找出它弄壞了什麼既有行為:\n` +
+      `你是回歸獵人。審查目前工作區的所有未提交變更。\n` +
+      `任務目的(一句話,僅此而已——你拿不到作者的推理與辯詞):${task}\n` +
+      `你的工作不是評價改得有沒有道理,而是找出「任務目的之外」被弄壞的既有行為。注意區分:任務本身要求的行為改變不是回歸,附帶損傷才是——只報後者:\n` +
       `(1) 對 diff 中每個被修改的函式/符號,grep 其所有呼叫點逐一檢查相容性;(2) 實際跑既有測試並讀完整輸出。\n` +
       `每個發現必須附 file:line 或指令輸出佐證,無佐證的猜測不得列入。只回報有實質影響的問題,風格瑣事標 minor。`,
       { model: 'sonnet', schema: REVIEW, phase: 'CrossReview', label: 'review:regression-hunter' }),
@@ -538,7 +561,7 @@ if (!reviews.length) {
       `每個發現必須附 file:line 佐證並指明違反哪一條。檔案不存在或全部通過 → approved=true、findings 空陣列。`,
       { model: 'opus', schema: REVIEW, phase: 'CrossReview', label: 'review:invariant-auditor' }))
   }
-  reviews = (await parallel(panel)).filter(Boolean)
+  reviews = groundedOnly((await parallel(panel)).filter(Boolean))
 }
 
 // 零審查不得靜默前進:未經任何審查的變更不能走到「完成」
