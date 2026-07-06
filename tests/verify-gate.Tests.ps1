@@ -17,6 +17,7 @@ $RUN_CHAINED = '{"type":"assistant","name":"Bash","input":{"command":"cd src && 
 $RUN_FAKE   = '{"type":"assistant","name":"Bash","input":{"command":"cat latest.log && echo contest"}}'
 $MENTION_ONLY = '{"type":"assistant","name":"Bash","input":{"command":"echo pytest 稍後再跑 && rg pytest docs/"}}'
 $DECLARED   = '{"type":"assistant","text":"變更完成。已修改、未驗證(無對應測試環境)。"}'
+$DECLARED_V2 = '{"type":"assistant","text":"狀態:已修改,尚未驗證——權限閘門擋下 pytest。"}'
 
 Describe 'verify-gate' {
   BeforeEach {
@@ -59,6 +60,12 @@ Describe 'verify-gate' {
 
   It '已聲明「已修改、未驗證」 → 放行(誠實豁免)' {
     New-Transcript -Path $script:tpath -Lines @($EDIT_PS1, $DECLARED)
+    $r = Invoke-Hook 'verify-gate.ps1' (New-Payload $script:tpath) $script:root
+    $r.StdOut | Should Not Match 'block'
+  }
+
+  It '聲明變體「已修改,尚未驗證」 → 放行(2026-07-06 金絲雀實證的措辭)' {
+    New-Transcript -Path $script:tpath -Lines @($EDIT_PS1, $DECLARED_V2)
     $r = Invoke-Hook 'verify-gate.ps1' (New-Payload $script:tpath) $script:root
     $r.StdOut | Should Not Match 'block'
   }

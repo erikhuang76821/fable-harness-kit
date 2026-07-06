@@ -56,7 +56,9 @@ if ($SetupOnly) {
 }
 
 # 4) 經 fable-run 監督跑 fable-emu(headless 鐵律:不得裸呼 claude -p)
-$task = '用 fable-emu workflow 處理:修復 calc.py 的 add 函式(目前行為錯誤),使 python -m pytest test_calc.py -q 全綠。'
+# 註:任務刻意標注「維持 fable-emu 流程」——否則 Understand 會正確判定 trivial 並觸發
+# process_mismatch 安全閥拒接(2026-07-06 首航實證),金絲雀就測不到全管線
+$task = '用 fable-emu workflow 處理:修復 calc.py 的 add 函式(目前行為錯誤),使 python -m pytest test_calc.py -q 全綠。context 註明:這是 kit 的金絲雀校驗,即使任務屬 trivial 也維持 fable-emu 流程跑完全管線,不要走 process_mismatch。'
 Write-Host "啟動金絲雀 run(經 fable-run 監督)..."
 & (Join-Path $kitRoot 'fable-run.ps1') -Task $task -Target $Workdir
 

@@ -42,7 +42,8 @@ foreach ($hit in (Select-String -Path $t -Pattern $testPattern)) {
 if ($lastTestLine -gt $lastEditLine) { exit 0 }
 
 # 3) 誠實聲明豁免:已明說「已修改、未驗證」(或引用 subagent 的驗證證據時通常伴隨測試指令,見 2)
-$declared = Select-String -Path $t -Pattern '已修改[、,，]?\s*未驗證' -Quiet
+# 容忍常見變體:「已修改、未驗證」「已修改,尚未驗證」(2026-07-06 金絲雀實證:模型會寫「尚未」)
+$declared = Select-String -Path $t -Pattern '已修改[^。\r\n]{0,6}未驗證' -Quiet
 if ($declared) { exit 0 }
 
 $out = @{

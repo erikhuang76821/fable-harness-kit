@@ -7,7 +7,7 @@ param(
   [string]$Target = (Get-Location).Path,
   [string]$Model = 'claude-opus-4-8',
   [int]$MaxResumes = 2,
-  [string]$AllowedTools = 'Read,Edit,Write,Glob,Grep,TodoWrite,Task,Agent,Workflow,Skill,Bash(node:*),Bash(npm:*),Bash(npx:*),Bash(git:*),Bash(ls:*),Bash(cat:*),Bash(date:*)'
+  [string]$AllowedTools = 'Read,Edit,Write,Glob,Grep,TodoWrite,Task,Agent,Workflow,Skill,Bash(node:*),Bash(npm:*),Bash(npx:*),Bash(git:*),Bash(ls:*),Bash(cat:*),Bash(date:*),Bash(python:*),Bash(python3:*),Bash(py:*),Bash(pytest:*)'
 )
 
 # 終態清單以 .claude/status-contract.json 為單一來源(執行期載入);下列硬編碼僅為契約檔缺失時的後備
