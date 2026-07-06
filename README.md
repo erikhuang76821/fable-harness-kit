@@ -1,0 +1,134 @@
+# fable-harness-kit
+
+**給 Claude Code 使用者的多模型開發 Harness 模板**:不換更貴的模型,用流程強制力買回思考維度。
+把「哪裡該懷疑、懷疑幾次、誰仲裁、何時收斂」從模型天性下沉為 hooks 與 workflow 腳本,
+讓 **Opus 4.8(規劃/仲裁)+ Sonnet(執行)+ Codex/Agy(跨模型審查)** 逼近 Fable 級輸出——
+成本信封:≤ 裸 Fable 5 做同一件事。
+
+核心等式:**Opus 4.8 + fable-emu workflow(編排判斷的預編譯)≈ Fable 5**
+
+> **給誰用**:主力模型是 Opus/Sonnet、想要 Fable 級的自我懷疑與驗證紀律、且在意成本的團隊。
+> **前置需求**:Claude Code(Windows;hooks 與腳本為 PowerShell,mac/linux 需自行 port 或改用 pwsh)。
+> 選配:codex plugin 與 agy CLI(跨模型審查;缺席時自動降級為單模型審查並留痕)。
+> **快速開始**:GitHub 上點「Use this template」建新專案,或對既有 repo 跑 `init.ps1`(見下)。
+
+## 套件內容
+
+```
+fable-harness-kit/
+├── README.md                        # 本檔(不會被複製到目標 repo)
+├── init.ps1                         # 一鍵初始化腳本(不會被複製)
+├── CLAUDE.md                        # 模板:分級路由 + 決策核心 + 提詞限制條款(需填 TODO)
+├── DECISION-CORE.md                 # 決策核心:授權 / 資訊裁決 / 判準,含正反例與實證標記
+├── TIER3-FRONTIER.md                # 前沿模式:深潛提詞模板(去指令化)+ 競試用法與成本數學
+├── fable-run.ps1                    # headless Tier 2/3 監督式執行器(截斷偵測 + resumeFromRunId 續跑)
+├── CONTEXT.md                       # 模板:領域語言字典 + 架構地圖(需填)
+├── docs/
+│   ├── HARNESS.md                   # 完整設計指南(提詞天花板對照表、模型路由)
+│   ├── invariants.md                # 模板:不變量清單(弱模型的護欄)
+│   └── adr/
+│       └── 0001-adopt-fable-harness.md  # ADR 格式範例(兼記錄本套件的採用)
+└── .claude/
+    ├── settings.json                # hooks 配置(四支:SessionStart / PreToolUse / PostToolUse / Stop)
+    ├── hooks/
+    │   ├── git-guard.ps1            # PreToolUse:攔危險指令
+    │   ├── session-brief.ps1        # SessionStart:鐵律 + LESSONS/DECISIONS + 待審建議計數 + 蒸餾觸發
+    │   ├── stop-retro-gate.ps1      # Stop:有修改的 session 收尾前強制檢討一次(寫教訓或聲明「檢討:無」)
+    │   └── rule-guard.ps1           # PostToolUse:規則檔變更自動留痕 DECISIONS.md(血統可追溯)
+    └── workflows/
+        ├── fable-emu.js             # Tier 2:理解→計畫→執行→跨模型審查→完整性
+        └── deep-attempts.js         # Tier 3 競試:N 個平行深潛(worktree 隔離)+ 裁判實測擇優
+```
+
+## 初始化方式
+
+```powershell
+# 方式一:腳本(只複製目標 repo 中不存在的檔案,絕不覆蓋)
+powershell -NoProfile -ExecutionPolicy Bypass -File .\init.ps1 -Target C:\path\to\your\repo
+
+# 方式二:手動
+# 把 README.md 和 init.ps1 以外的所有內容,照原始目錄結構複製到目標 repo 根目錄
+```
+
+## 初始化後檢查清單(必做)
+
+1. **CLAUDE.md**:填掉所有 `TODO(...)` —— build/test/lint 指令、瑣碎任務的專案定義。
+2. **CONTEXT.md**:填領域名詞表和架構地圖。寫「為什麼這樣設計」,不要寫 code 本身能看出的東西。
+3. **docs/invariants.md**:列出這個專案「絕不能被破壞」的規則,一條一行。
+4. **確認跨模型 bridge 可用**:codex plugin(`codex:codex-rescue`)與 agy CLI(`agy-bridge`)。
+   都沒有也能跑 —— fable-emu 會自動降級為單一 Opus 綜合審查,並在 log 中明示降級。
+5. **試跑一次**:丟一個小型真實任務,說
+   「用 fable-emu workflow 處理:<任務描述>」,觀察各階段輸出並收緊 prompt/schema。
+6. (可選)自動 lint/typecheck:在**現有 PostToolUse 陣列追加** handler
+   (⚠️ 不要整段替換 —— 會覆蓋內建的 rule-guard 留痕 hook):
+
+```json
+"PostToolUse": [
+  { "matcher": "Edit|MultiEdit|Write", "hooks": [{ "type": "command", "command": "powershell ... rule-guard.ps1" }] },
+  { "matcher": "Edit|MultiEdit|Write", "hooks": [{ "type": "command", "command": "TODO: 你的 lint/typecheck 指令" }] }
+]
+```
+
+## 成本信封(消融實驗定案;原始數據在開發庫 ab-test-v2,未隨 kit 搬移)
+
+**設計目標:成本 ≤ 裸 Fable 5 同任務、時間同量級、品質不輸。**
+實測依據:提詞層(Tier 0)以 ~$0.5 / 2 分鐘拿到盲評最高分。
+
+- **分級路由**(CLAUDE.md):Tier 0 提詞層(預設)→ Tier 1 +fresh-context 驗證者(高風險單模組)→ Tier 2 fable-emu(跨模組/不可逆,僅互動式 session)。
+- **fable-emu 成本控制**:競技場與洞察代理只留 complex;審查預設單評者(`args.thorough` 才雙評);low 風險步驟 haiku 驗證;成功步驟批次落盤;檢討只在有事可檢討時跑。目標成本 ~$1.0-1.3。
+- **交付優先判準**:不可逆分歧若存在可逆預設路徑 → 先交付、爭議隨最終回報上報(`reversible_default`),不再為可逆工作擋單。
+- **headless 截斷防護**:`fable-run.ps1` 監督式執行器(TASK.md 終態偵測 +
+  `--continue` resumeFromRunId 續跑,上限 2 次)+ fable-emu 階段邊界交付檢查點(截斷不丟交付物)。
+- **Tier 3(前沿模式)**:難題不進編排管線(編排是中等任務的槓桿、難題的稅)——深潛用單一
+  Opus xhigh session 燒到底(同錢 = Fable 兩倍 tokens);可驗證的難題用 deep-attempts 競試。
+  詳見 TIER3-FRONTIER.md,含誠實邊界(無驗證器的品味題與多日級長跑仍屬 Fable)。
+
+## 天花板機制(生成端加碼,驗證漏斗不變)
+
+原則:**天花板加在生成端,地板鎖在驗證端,兩端永不互換。** 所有探索性產出想合流,一律走同一套驗證漏斗,沒有 VIP 通道。
+
+| 機制 | 做什麼 | 觸發條件 |
+|---|---|---|
+| 複雜度分級 | Understand 判 trivial/standard/complex,決定後續投入多少規劃冗餘 | 每次 |
+| 計畫競技場 | 2 個立場迥異的規劃者平行出案,裁判合成 | **僅 complex** + 預算足 |
+| 洞察代理 | 「更強的工程師會看到什麼這份計畫沒看到的?」fundamental 級發現觸發一次計畫修訂 | **僅 complex** + 預算足 |
+| 重規劃回路 | 執行中發現「計畫前提被現實推翻」→ 帶著既成事實回規劃重排剩餘步驟(限一次) | plan_invalidated |
+| 風險分級驗證 | high 風險步驟雙鏡頭驗證(正確性+回歸)全過才放行;low 用 haiku 單驗證。分級只降生成成本,不降阻斷力 | 每步 |
+| 後設認知安全閥 | 任務根本不適合本流程時顯式上報建議路線,不硬套五階段 | process_mismatch |
+| 異端沙箱 | 隔離 worktree 平行試一條根本不同的路線,報告僅供比較,絕不自動合流 | args.maverick(opt-in) |
+| 賽後檢討 | 產出流程浪費分析與「教訓升格為規則」候選,寫入 .fable/KIT-SUGGESTIONS.md 供人審 | 有事可檢討時(重規劃/審查修復/缺口) |
+| 預算分艙 | 總預算 30% 鎖給驗證與審查;探索(競技場/洞察/異端)花再兇不得侵入 | 有預算時 |
+
+## 執行留痕(.fable/,由 workflow 自動產生)
+
+fable-emu 執行時會由 Haiku 紀錄員 agent 動態落盤,防止偏移並累積組織知識:
+
+- `.fable/runs/<任務slug>/TASK.md` — 即時任務狀態:完成定義、步驟 checkbox、卡點
+- `.fable/DECISIONS.md` — append-only:方案取捨、上報紀錄、審查仲裁(含被駁回的發現與理由)
+- `.fable/LESSONS.md` — append-only:被對抗驗證駁回的教訓、執行層漏掉而審查抓到的盲點
+- `.fable/KIT-SUGGESTIONS.md` — 結構化條目 `- [pending] 建議(證據:...;日期)`;人審改為 [accepted]/[rejected],僅 accepted 可入法。閉環由 hooks 驅動:Stop hook 逼「寫」(全 tier 收尾檢討)、SessionStart hook 逼「讀」(待審計數 + 蒸餾觸發)、rule-guard 留「證據鏈」(規則檔變更自動記入 DECISIONS)
+
+回饋迴路:下一次任務的理解階段**必讀** LESSONS 與 DECISIONS——教訓跨任務生效,而不是散在對話裡。
+`.fable/` 建議進版控(它是團隊知識,不是暫存檔);LESSONS.md 太長時定期蒸餾進 CLAUDE.md 條款或 invariants.md。
+
+## 已知限制(有意接受的殘餘風險)
+
+- **git-guard 是 best-effort 防呆,不是沙箱**:regex 閘門擋常見危險寫法(含旗標位置變形),
+  防的是模型失誤,不是蓄意繞過;最後防線是 Claude Code 的 permission mode。
+- **hook 使用相對路徑**:依賴 Claude Code 以專案根目錄執行 hooks(目前行為如此);
+  若未來版本改變 cwd 行為,需改為絕對路徑。
+- **PostToolUse 與 Stop 已各內建一支 hook**(rule-guard 留痕、stop-retro-gate 收尾檢討);
+  「自動 lint」與「codex review gate」仍為選配 —— 追加時見檢查清單第 6 條,勿覆蓋既有 handler。
+
+## 設計原理速記
+
+- 提詞管品質與風格;**不可妥協的環節(驗證次數、投票、預算、危險指令)一律下沉到 harness**。
+- Fan-out subagent 與 agent loop 是 Claude Code harness 的能力,模型無關,Opus 4.8 全可用;
+  Opus 缺的只是主動性,由 CLAUDE.md 的觸發規則補上。
+- Codex/Gemini 只當被呼叫的單體 worker(審查、第二意見),不當編排層。
+- 殘差(單發推理深度)用 token 冗餘買回:effort 調高、judge panel、多輪對抗。
+- 提詞工藝(合理化警報表、證據閘門措辭、SessionStart 注入)吸收自
+  [obra/superpowers](https://github.com/obra/superpowers);
+  它是精緻的提詞層,本套件在其上補了它沒有的確定性層(JS workflow + schema + 落盤)。
+
+詳細論述見 `docs/HARNESS.md`。

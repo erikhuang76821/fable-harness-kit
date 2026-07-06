@@ -1,0 +1,8 @@
+# fable-run 的 headless 執行日誌(體積大、含逐字 transcript,不進版控)
+.fable/run-logs/
+
+# .fable/ 其餘內容(LESSONS/DECISIONS/KIT-SUGGESTIONS/runs)是團隊知識,建議進版控——刻意不忽略
+
+# 作業系統雜物
+Thumbs.db
+.DS_Store
