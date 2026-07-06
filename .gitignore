@@ -3,6 +3,13 @@
 
 # .fable/ 其餘內容(LESSONS/DECISIONS/KIT-SUGGESTIONS/runs)是團隊知識,建議進版控——刻意不忽略
 
+# Python 執行雜物(benchmark fixtures 會在原地被 pytest 掃到)
+__pycache__/
+*.pyc
+
+# benchmark 原始結果與裁判回覆(含本機絕對路徑;正式報告另行整理進版控)
+benchmark/results/
+
 # 作業系統雜物
 Thumbs.db
 .DS_Store

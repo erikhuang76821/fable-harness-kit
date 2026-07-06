@@ -46,6 +46,24 @@ function Get-LastResult([string]$logPath) {
   return $result
 }
 
+function Get-RunCost([string]$logPath) {
+  # 成本遙測:stream-json 的 result 事件自帶 total_cost_usd 與 usage —— 直接取用,不自行估價
+  $cost = $null; $inTok = 0; $outTok = 0
+  if (-not (Test-Path $logPath)) { return $null }
+  foreach ($line in (Get-Content $logPath)) {
+    try { $ev = $line | ConvertFrom-Json } catch { continue }
+    if ($ev.type -eq 'result') {
+      if ($null -ne $ev.total_cost_usd) { $cost = [double]$ev.total_cost_usd }
+      if ($ev.usage) {
+        if ($ev.usage.input_tokens) { $inTok = [long]$ev.usage.input_tokens }
+        if ($ev.usage.output_tokens) { $outTok = [long]$ev.usage.output_tokens }
+      }
+    }
+  }
+  if ($null -eq $cost -and $inTok -eq 0 -and $outTok -eq 0) { return $null }
+  return @{ cost = $cost; in = $inTok; out = $outTok }
+}
+
 if (-not (Test-Path $Target)) { Write-Error "目標不存在:$Target"; exit 1 }
 $logDir = Join-Path $Target '.fable\run-logs'
 New-Item -ItemType Directory -Force $logDir | Out-Null
@@ -78,6 +96,25 @@ try {
   Write-Host "`n===== 最終回覆 ====="
   $final = Get-LastResult $log
   if ($final) { Write-Host $final } else { Write-Host "(無法從 log 抽取最終回覆,見 $log)" }
+
+  # ===== 成本遙測:逐輪加總,印出並 append 到 .fable/COST-LOG.md(信封宣稱的自我審計數據) =====
+  $totalCost = 0.0; $totalIn = 0; $totalOut = 0; $rounds = 0; $hasCost = $false
+  foreach ($lg in (Get-ChildItem "$logDir\$stamp-r*.jsonl" -ErrorAction SilentlyContinue)) {
+    $c = Get-RunCost $lg.FullName
+    if ($c) {
+      $rounds++
+      if ($null -ne $c.cost) { $totalCost += $c.cost; $hasCost = $true }
+      $totalIn += $c.in; $totalOut += $c.out
+    }
+  }
+  $ws2 = Get-WorkflowState $Target
+  $costStr = if ($hasCost) { '${0:N2}' -f $totalCost } else { '(無 total_cost_usd 欄位)' }
+  Write-Host "`n===== 成本遙測 ====="
+  Write-Host "本次共 $rounds 輪;成本:$costStr;tokens in/out:$totalIn/$totalOut"
+  $taskSnippet = if ($Task.Length -gt 60) { $Task.Substring(0, 60) + '…' } else { $Task }
+  Add-Content -Path (Join-Path $Target '.fable\COST-LOG.md') -Encoding utf8 -Value (
+    "- [{0}] {1} | 輪數={2} | 成本={3} | tokens={4}/{5} | 終態={6}" -f
+    (Get-Date -Format 'yyyy-MM-dd HH:mm'), $taskSnippet, $rounds, $costStr, $totalIn, $totalOut, $ws2.status)
 } finally {
   Pop-Location
 }

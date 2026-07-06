@@ -34,8 +34,12 @@ fable-harness-kit/
 │   ├── invariants.md                # 模板:不變量清單(弱模型的護欄)
 │   └── adr/
 │       └── 0001-adopt-fable-harness.md  # ADR 格式範例(兼記錄本套件的採用)
+├── benchmark/                       # 對照基準:裸 Fable 5 vs kit 化 Opus(PROTOCOL.md 預註冊;
+│                                    #   run-benchmark.ps1 收驗收/成本/時間,judge.ps1 非 Claude 家族雙裁判盲評)
 ├── scripts/
-│   └── canary.ps1                   # 金絲雀:fable-emu 修改後一鍵端到端實跑(固定 fixture + artifact)
+│   ├── canary.ps1                   # 金絲雀:fable-emu 修改後一鍵端到端實跑(固定 fixture + artifact)
+│   ├── schedule-canary.ps1          # 每週排程金絲雀:感測上游模型暗改(靜態測試唯一攔不到的盲區)
+│   └── upstream-suggestions.ps1     # 艦隊回流:各部署專案的 [accepted] 建議回流 kit repo 成 issue
 ├── tests/                           # 行為契約:hooks(Pester)+ workflow(node --test,stub 執行器)+ 人格同步
 └── .claude/
     ├── settings.json                # hooks 配置(六支,含兩支 Stop gate:verify 在前、retro 在後)
@@ -106,6 +110,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\init.ps1 -Target C:\path\t
 - **交付優先判準**:不可逆分歧若存在可逆預設路徑 → 先交付、爭議隨最終回報上報(`reversible_default`),不再為可逆工作擋單。
 - **引用不複製**:任務理解落盤 `.fable/runs/<slug>/ctx.md` 供各 agent 按需讀取,執行步驟只帶
   進度一行 + 上一步詳情(舊版每步注入全部歷史,context 成本隨步數平方成長);大輸出寫檔回傳路徑。
+- **成本遙測**:fable-run 每輪加總 stream-json 的 `total_cost_usd` 與 tokens,印出並 append 到
+  `.fable/COST-LOG.md`——信封宣稱由每次 run 自動累積實測分布,自我審計。
+- **對照基準**:`benchmark/` 以預註冊協議(PROTOCOL.md)對照裸 Fable 5 與 kit 化 Opus——
+  核心等式從「工作假設」升級為「可覆核測量」的機制;利益衝突控制:非 Claude 家族雙裁判盲評。
 - **headless 截斷防護**:`fable-run.ps1` 監督式執行器(TASK.md 終態偵測 +
   `--continue` resumeFromRunId 續跑,上限 2 次)+ fable-emu 階段邊界交付檢查點(截斷不丟交付物)。
 - **Tier 3(前沿模式)**:難題不進編排管線(編排是中等任務的槓桿、難題的稅)——深潛用單一

@@ -1,0 +1,1 @@
+修復 cache.py(test_cache.py 有測試未過),使 python -m pytest -q 全綠。注意:report.py 是 cache 的既有消費者,其測試目前是綠的,不得被你的修復弄破。不得修改任何測試檔。

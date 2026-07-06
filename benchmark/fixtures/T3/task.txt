@@ -1,0 +1,1 @@
+users.py 與 orders.py 各自重複了一份 email 驗證邏輯。請重構:建立 validators.py 提供 is_valid_email,兩個模組改為匯入使用,行為不得改變(python -m pytest -q 必須維持全綠)。不得修改測試檔。
