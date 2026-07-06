@@ -7,9 +7,15 @@
 
 核心等式:**Opus 4.8 + fable-emu workflow(編排判斷的預編譯)≈ Fable 5**
 
+**證據等級聲明**:上述等式與成本信封來自作者的內部消融實驗(4 組 × 3 run、雙盲評分,2026-07),
+原始數據未隨 kit 公開——採用者應將其視為**工作假設**,在自己的任務上驗證,而非已確立的 benchmark。
+本套件自己的決策核心也是這樣要求的:未驗證的宣稱是待驗假設,不是真理。
+
 > **給誰用**:主力模型是 Opus/Sonnet、想要 Fable 級的自我懷疑與驗證紀律、且在意成本的團隊。
 > **前置需求**:Claude Code(Windows;hooks 與腳本為 PowerShell,mac/linux 需自行 port 或改用 pwsh)。
 > 選配:codex plugin 與 agy CLI(跨模型審查;缺席時自動降級為單模型審查並留痕)。
+> **非 Claude Code 使用者**:hooks 與 workflow 強制力**不可移植**;可移植的是提詞條款與決策核心
+> (Codex 側放 AGENTS.md、Gemini 側放 GEMINI.md),見 `docs/HARNESS.md` §2.5。
 > **快速開始**:GitHub 上點「Use this template」建新專案,或對既有 repo 跑 `init.ps1`(見下)。
 
 ## 套件內容
