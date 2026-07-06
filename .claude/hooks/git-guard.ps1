@@ -18,7 +18,7 @@ $patterns = @(
   'git\b[^|&;]*\bstash\s+(drop|clear)',
   'git\b[^|&;]*\brebase\b[^|&;]*\s(-i\b|--interactive\b)',
   'rm\b(?=[^|&;]*\s-[A-Za-z]*r)(?=[^|&;]*\s-[A-Za-z]*f)[^|&;]*\s["'']?([/~]|[A-Za-z]:[\\/])',
-  '(?i:Remove-Item|ri|del|erase)\b(?i)(?=[^|&;]*-Recurse)(?=[^|&;]*-Force)[^|&;]*\s["'']?[A-Za-z]:[\\/]*["'']?\s*(-|$|[|&;])',
+  '(?i:Remove-Item|ri|del|erase)\b(?i)(?=[^|&;]*-Recurse)(?=[^|&;]*-Force)[^|&;]*\s["'']?([A-Za-z]:[\\/]|[/~])',
   '(^|\s)(?i:rd|rmdir)\s+/s\b'
 )
 

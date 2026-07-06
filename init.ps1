@@ -17,6 +17,16 @@ $exclude = @('README.md', 'init.ps1', 'LICENSE')
 $copied = 0
 $skipped = 0
 
+# Harness 共存偵測:目標已有自己的 hooks/settings 時,只增不覆蓋的複製會「靜默不註冊」本 kit 的 hooks
+$hadSettings = Test-Path (Join-Path $Target '.claude\settings.json')
+$hadHooks = Test-Path (Join-Path $Target '.claude\hooks')
+$hadOtherHarness = @(Get-ChildItem (Join-Path $Target '.claude\skills') -Directory -ErrorAction SilentlyContinue |
+  Where-Object { $_.Name -match 'superpowers|harnessmith' }).Count -gt 0
+if ($hadSettings -or $hadHooks -or $hadOtherHarness) {
+  Write-Host "NOTE: 偵測到既有 harness 痕跡(settings.json:$hadSettings / hooks:$hadHooks / 其他 harness skill:$hadOtherHarness)。"
+  Write-Host "      本腳本照舊只複製不存在的檔案、絕不覆蓋;既有 settings.json 會被跳過 → 本 kit 的 hooks 不會自動生效,見結尾的 merge 指引。"
+}
+
 Get-ChildItem -Path $src -Recurse -File | ForEach-Object {
   $rel = $_.FullName.Substring($src.Length + 1)
   if ($exclude -contains $rel) { return }
@@ -48,7 +58,23 @@ foreach ($rel in @('CLAUDE.md', 'CONTEXT.md', 'docs\invariants.md', 'docs\DECISI
 if ($todoTotal -gt 0) {
   Write-Host "WARN: 共 $todoTotal 處 TODO —— 填完前 harness 只有流程強制力,缺少專案事實基準(build/test 指令、不變量)。"
 }
+if ($hadSettings) {
+  Write-Host ""
+  Write-Host "MERGE 指引:目標已有 .claude\settings.json(未覆蓋)。要啟用本 kit 的 hooks,請手動把以下 handler 併入既有陣列(勿整段替換):"
+  Write-Host "  SessionStart(startup|clear|compact)→ hooks/session-brief.ps1"
+  Write-Host "  UserPromptSubmit → hooks/prompt-nudge.ps1"
+  Write-Host "  PreToolUse(Bash|PowerShell)→ hooks/git-guard.ps1"
+  Write-Host "  PostToolUse(Edit|MultiEdit|Write)→ hooks/rule-guard.ps1"
+  Write-Host "  Stop → hooks/verify-gate.ps1 + hooks/stop-retro-gate.ps1(順序:verify 在前)"
+  Write-Host "  完整格式參考本套件的 .claude\settings.json"
+}
+if ($hadOtherHarness) {
+  Write-Host ""
+  Write-Host "共存建議:偵測到其他開發 harness(如 Superpowers)。分工原則:SDLC 主流程讓給該 harness,"
+  Write-Host "  本 kit 只守底線(危險指令攔截、證據閘門、收尾檢討、.fable/ 留痕);fable-emu 僅在使用者點名時跑,避免雙 harness 搶編排。"
+}
+Write-Host ""
 Write-Host "接下來(見套件 README.md 的檢查清單):"
 Write-Host "  1. 填 CLAUDE.md 的 TODO(build/test/lint 指令、Tier 1 高風險區、規格來源)"
 Write-Host "  2. 填 CONTEXT.md、docs/invariants.md、docs/DECISION-CORE.md 的規格來源"
-Write-Host "  3. 試跑一個 Tier 0 小任務驗證 hooks 生效"
+Write-Host "  3. 跑 Invoke-Pester -Path tests 確認 hooks 契約全綠,再試跑一個 Tier 0 小任務"

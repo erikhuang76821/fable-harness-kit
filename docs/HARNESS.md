@@ -68,11 +68,15 @@ repo/
 | Hook | 用途 | 狀態 |
 |---|---|---|
 | SessionStart | 注入核心鐵律 + LESSONS/DECISIONS + 待審建議計數 + 蒸餾觸發(compact 後重注) | ✅ 套件內建 |
+| UserPromptSubmit | 每回合一行輕推(prompt-nudge),對抗長 session 規則衰減;建 `.claude/nudge-off` 可關 | ✅ 套件內建 |
 | PreToolUse | 擋危險 git / 遞迴刪除指令(git-guard) | ✅ 套件內建 |
 | PostToolUse(Edit/MultiEdit/Write) | 規則檔變更自動留痕 DECISIONS.md(rule-guard) | ✅ 套件內建 |
-| Stop | 有修改的 session 收尾前強制檢討一次(stop-retro-gate) | ✅ 套件內建 |
+| Stop ①(verify-gate) | 改了程式檔卻無測試痕跡 → 擋一次,補證據或明說「已修改、未驗證」 | ✅ 套件內建 |
+| Stop ②(stop-retro-gate) | 有修改的 session 收尾前強制檢討一次 | ✅ 套件內建 |
 | PostToolUse(lint/typecheck 自動跑) | 錯誤直接回饋給模型 | ⚠️ 選配:在**現有 PostToolUse 陣列追加** handler,勿覆蓋 rule-guard |
-| Stop(codex review gate) | 收尾時強制跨模型審查 | ⚠️ 選配,需 codex plugin |
+
+hooks 的行為契約由 `tests/`(Pester)鎖定——改 hook 必須跑綠才算完成;
+兩支 Stop gate 各擋一次,任一擋過後 `stop_hook_active` 使另一支放行(單次收尾最多被擋一次)。
 
 ### 2.4 模型路由(判斷密度決定模型等級)
 
@@ -82,6 +86,11 @@ repo/
 | 逐步執行 | Sonnet 5 / 4.6 | 計畫已收窄任務,執行不需頂級判斷 |
 | 對抗式審查 | Codex + Agy(Gemini) | 跨家族盲點不重疊;prompt 立場設為「預設有錯,盡力反駁」 |
 | 機械性掃描 / 整理 | Haiku 4.5 | 便宜、量大 |
+
+**低成本預設路由(日常補充,吸收自 Miguok/fable-harness 的直覺版)**:
+- 主迴圈是指揮官,不做粗活:預估要讀 >10 個檔、或「找出所有 X / 盤點整個 Y」型任務 → 派 Explore(haiku),只收結論 + file:line,不收原始檔傾倒。
+- 瑣碎單步(改一行、看一個檔)主迴圈直接做——委派 overhead 反而更貴。
+- 推理/架構/仲裁留在當前模型;非瑣碎的編寫/重構派 sonnet;批次/搜尋/整理派 haiku。
 
 ### 2.5 Codex / Gemini 的定位
 
