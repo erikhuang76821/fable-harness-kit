@@ -57,9 +57,12 @@ verdict: <X|Y|tie> — <一句話理由>
 "@ | Set-Content $promptFile -Encoding utf8
 
   Write-Host "[$($g.Name)] 送雙裁判盲評…"
-  $codexOut = codex exec --sandbox read-only "$(Get-Content $promptFile -Raw -Encoding utf8)" 2>&1 | Out-String
+  # 經 bash 傳遞:prompt 內含 diff 的 " 字元會打爆 PowerShell 原生引號傳遞(實證:docstring 的三引號
+  # 讓 codex 把 diff 碎片當參數);bash 的 "$(cat file)" 對內嵌雙引號安全,且為既有成功模式
+  $posix = '/' + $promptFile.Substring(0, 1).ToLower() + $promptFile.Substring(2).Replace('\', '/')
+  $codexOut = & bash -c ('codex exec --sandbox read-only "$(cat ' + $posix + ')"') 2>&1 | Out-String
   $codexOut | Set-Content (Join-Path $resultsDir "judge-$($g.Name)-codex-$stamp.txt") -Encoding utf8
-  $agyOut = agy --model "Gemini 3.1 Pro (High)" -p "$(Get-Content $promptFile -Raw -Encoding utf8)" 2>&1 | Out-String
+  $agyOut = & bash -c ('agy --model "Gemini 3.1 Pro (High)" -p "$(cat ' + $posix + ')"') 2>&1 | Out-String
   $agyOut | Set-Content (Join-Path $resultsDir "judge-$($g.Name)-agy-$stamp.txt") -Encoding utf8
   # 評分完成,此刻才揭盲落盤
   $mapping | ConvertTo-Json | Set-Content (Join-Path $resultsDir "judge-mapping-$($g.Name)-$stamp.json") -Encoding utf8
