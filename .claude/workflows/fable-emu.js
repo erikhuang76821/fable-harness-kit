@@ -512,18 +512,39 @@ if (args && args.thorough) {
   }
 }
 
-// 跨模型 CLI 都不在時,退回單一 Opus 綜合視角 —— 有備援,但 log 出降級事實
+// 跨模型 CLI 都不在時,退回同家族「人格審查團」:用資訊不對稱與證據通道差異買回獨立性
+// (規格律師不看實作理由、回歸獵人不看任務目的)。權重相同的共享盲點補不回——
+// 靠後段仲裁強制讀 code 攔截,並在留痕與最終回報明示降級成色
+let reviewMode = 'cross-model'
 if (!reviews.length) {
-  log('Codex/Agy 均不可用,降級為 Opus 綜合審查')
-  const r = await agent(`${reviewPrompt}\n審查視角:正確性 + 回歸風險綜合。`,
-    { model: 'opus', schema: REVIEW, phase: 'CrossReview', label: 'review:opus' })
-  if (r) reviews = [r]
+  reviewMode = 'same-family-panel'
+  log(`Codex/Agy 均不可用,降級為同家族人格審查團(規格律師 + 回歸獵人${args && args.thorough ? ' + 不變量稽核' : ''});無跨家族盲點覆蓋`)
+  const panel = [
+    () => agent(
+      `你是規格律師。先不看任何實作:根據下列任務語句與完成定義,獨立推導「正確的實作應該具備哪些可觀察行為」,列成清單;然後才審查目前工作區的所有未提交變更,逐條對照你的清單。\n` +
+      `你的立場是反方:預設實作偏離了規格,盡力找出「做了但不是要的」與「要的但沒做」。\n` +
+      `每個發現必須附 file:line 或指令輸出佐證,無佐證的猜測不得列入。只回報有實質影響的問題,風格瑣事標 minor。\n` +
+      `任務:${task}\n完成定義:${u.definition_of_done.join(' / ')}`,
+      { model: 'sonnet', schema: REVIEW, phase: 'CrossReview', label: 'review:spec-lawyer' }),
+    () => agent(
+      `你是回歸獵人。審查目前工作區的所有未提交變更。刻意不告訴你這次修改的目的——你的工作不是評價改得有沒有道理,而是找出它弄壞了什麼既有行為:\n` +
+      `(1) 對 diff 中每個被修改的函式/符號,grep 其所有呼叫點逐一檢查相容性;(2) 實際跑既有測試並讀完整輸出。\n` +
+      `每個發現必須附 file:line 或指令輸出佐證,無佐證的猜測不得列入。只回報有實質影響的問題,風格瑣事標 minor。`,
+      { model: 'sonnet', schema: REVIEW, phase: 'CrossReview', label: 'review:regression-hunter' }),
+  ]
+  if (args && args.thorough) {
+    panel.push(() => agent(
+      `你是不變量稽核。讀 docs/invariants.md 與 CONTEXT.md 的「已知地雷」(若存在),對目前工作區的所有未提交變更逐條核對:有沒有任何一條不變量被這次修改觸碰或削弱?\n` +
+      `每個發現必須附 file:line 佐證並指明違反哪一條。檔案不存在或全部通過 → approved=true、findings 空陣列。`,
+      { model: 'opus', schema: REVIEW, phase: 'CrossReview', label: 'review:invariant-auditor' }))
+  }
+  reviews = (await parallel(panel)).filter(Boolean)
 }
 
 // 零審查不得靜默前進:未經任何審查的變更不能走到「完成」
 if (!reviews.length) {
-  await scribe(`更新 ${RUN_DIR}/TASK.md:狀態改為 review_unavailable —— 跨模型與 Opus 備援審查全部失敗,變更已實作但未經任何審查。`, 'log:review-unavailable')
-  return { status: 'review_unavailable', journal, reason: '所有審查者(Codex/Agy/Opus 備援)均無有效回應;變更未經審查,不得視為完成' }
+  await scribe(`更新 ${RUN_DIR}/TASK.md:狀態改為 review_unavailable —— 跨模型與人格審查團備援全部失敗,變更已實作但未經任何審查。`, 'log:review-unavailable')
+  return { status: 'review_unavailable', journal, reason: '所有審查者(Codex/Agy/人格審查團備援)均無有效回應;變更未經審查,不得視為完成' }
 }
 
 // 聚合與去重是純 JS —— 模型無權決定「哪些發現可以不管」
@@ -579,7 +600,7 @@ if (unfixed.length) {
 
 // 審查通過檢查點(隨做隨寫:審查背書落盤,之後的完整性/檢討被截斷也不影響交付)
 await scribe(
-  `更新 ${RUN_DIR}/TASK.md:狀態改為 reviewed;append「## 交付檢查點(審查完成)」—— 審查者 ${reviews.length} 位,確認並修復的問題:${JSON.stringify(fixedFindings)}(空陣列 = 無確認問題)。`,
+  `更新 ${RUN_DIR}/TASK.md:狀態改為 reviewed;append「## 交付檢查點(審查完成)」—— 審查者 ${reviews.length} 位(模式:${reviewMode}${reviewMode === 'same-family-panel' ? ',同家族人格團降級,無跨家族盲點覆蓋' : ''}),確認並修復的問題:${JSON.stringify(fixedFindings)}(空陣列 = 無確認問題)。`,
   'log:review-done')
 
 // ---------- Phase 4:完整性批評(對照凍結清單 + 重推導活的期望) ----------
@@ -639,7 +660,12 @@ return {
   definition_of_done: u.definition_of_done,
   journal,
   replans,
-  cross_review: { reviewers: reviews.length, findings_confirmed_and_fixed: fixedFindings },
+  cross_review: {
+    reviewers: reviews.length,
+    mode: reviewMode,
+    degradation_note: reviewMode === 'same-family-panel' ? '跨模型 CLI 不可用,本次審查為同家族人格團(資訊不對稱設計),無跨家族盲點覆蓋' : null,
+    findings_confirmed_and_fixed: fixedFindings,
+  },
   remaining_gaps: gaps,
   maverick: maverickReport ? { report: maverickReport, note: '未合流;要採納異端路線請明確指示' } : null,
   retro: retro || null,

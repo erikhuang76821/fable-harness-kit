@@ -62,7 +62,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\init.ps1 -Target C:\path\t
 2. **CONTEXT.md**:填領域名詞表和架構地圖。寫「為什麼這樣設計」,不要寫 code 本身能看出的東西。
 3. **docs/invariants.md**:列出這個專案「絕不能被破壞」的規則,一條一行。
 4. **確認跨模型 bridge 可用**:codex plugin(`codex:codex-rescue`)與 agy CLI(`agy-bridge`)。
-   都沒有也能跑 —— fable-emu 會自動降級為單一 Opus 綜合審查,並在 log 中明示降級。
+   都沒有也能跑 —— fable-emu 會自動降級為**同家族人格審查團**:規格律師(只看規格不看實作理由)
+   + 回歸獵人(只看 diff 不看任務目的),`thorough` 加不變量稽核。以資訊不對稱買回審查獨立性;
+   權重相同的共享盲點無法補回,由仲裁強制讀 code 攔截,並在留痕與最終回報明示降級成色。
 5. **試跑一次**:丟一個小型真實任務,說
    「用 fable-emu workflow 處理:<任務描述>」,觀察各階段輸出並收緊 prompt/schema。
 6. (可選)自動 lint/typecheck:在**現有 PostToolUse 陣列追加** handler
