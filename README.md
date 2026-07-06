@@ -83,6 +83,18 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\init.ps1 -Target C:\path\t
   Opus xhigh session 燒到底(同錢 = Fable 兩倍 tokens);可驗證的難題用 deep-attempts 競試。
   詳見 TIER3-FRONTIER.md,含誠實邊界(無驗證器的品味題與多日級長跑仍屬 Fable)。
 
+## Context 占用(harness 的固定稅,實測估算)
+
+| 口徑 | Tokens(約) | 佔 1M 窗口 |
+|---|---|---|
+| 每 session 自動載入(CLAUDE.md + hook 注入鐵律) | 2,600 | 0.26% |
+| 動工一個任務(+ 必讀:DECISION-CORE / CONTEXT / invariants) | 4,300 | 0.43% |
+| 全套件通讀(僅在被要求讀整個 kit 時發生) | 27,000 | 2.7% |
+
+- `.fable/LESSONS.md`、`DECISIONS.md` 的注入尾巴會隨累積成長(封頂約再 +1,500),過長時 SessionStart hook 會提示蒸餾。
+- fable-emu.js(~11k tokens)正常運作**不進主模型 context**:workflow 由 harness 執行,內部 prompt 分段發給各 subagent,各自計費。
+- 估算係數:CJK 字 ≈ 1.1 token、其餘 ≈ 4 字元/token,誤差約 ±30%。
+
 ## 天花板機制(生成端加碼,驗證漏斗不變)
 
 原則:**天花板加在生成端,地板鎖在驗證端,兩端永不互換。** 所有探索性產出想合流,一律走同一套驗證漏斗,沒有 VIP 通道。
