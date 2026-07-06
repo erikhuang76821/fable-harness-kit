@@ -91,8 +91,8 @@ const STEP_RESULT = {
   required: ['status', 'summary', 'verification_output', 'plan_invalidated'],
   properties: {
     status: { enum: ['done', 'blocked'] },
-    summary: { type: 'string' },
-    verification_output: { type: 'string', description: '驗證指令的真實輸出,禁止腦補' },
+    summary: { type: 'string', description: '≤ 3 句;細節留在 diff 與驗證輸出,不重述' },
+    verification_output: { type: 'string', description: '驗證指令的真實輸出,禁止腦補。超過 30 行請節錄關鍵行(必含結論行與 exit code),完整輸出寫入 .fable/runs/<任務>/logs/ 並附路徑' },
     deviation: { type: 'string', description: '與計畫不符之處;沒有則留空字串' },
     plan_invalidated: { type: 'boolean', description: '發現「不是這步做不到,而是計畫的前提錯了」才 true —— 會觸發重規劃,不是逃避這一步的藉口' },
     invalidation_reason: { type: 'string', description: 'plan_invalidated=true 時必填:哪個前提、被什麼事實推翻' },
@@ -120,7 +120,7 @@ const REVIEW = {
         type: 'object', required: ['summary', 'severity'],
         properties: {
           file: { type: 'string' },
-          summary: { type: 'string' },
+          summary: { type: 'string', description: '1-2 句講清楚問題與觸發條件;佐證引 file:line,不貼大段 code' },
           severity: { enum: ['critical', 'major', 'minor'] },
         },
       },
@@ -288,17 +288,28 @@ if (!chosenName && u.decision_gate === 'user_should_choose') {
 }
 const chosen = chosenName || u.recommended_option
 log(`採用方案:${chosen};完成定義:${u.definition_of_done.join(' / ')}`)
-await scribe(
+const ctxScribe = await scribe(
   `1. 建立(或覆寫)${RUN_DIR}/TASK.md:任務狀態檔。內容:任務「${task}」、狀態=planning、完成定義:${JSON.stringify(u.definition_of_done)}、採用方案「${chosen}」、上層目標:${u.higher_goal}。\n` +
-  `2. append 到 .fable/DECISIONS.md:方案決策 —— 候選:${JSON.stringify(u.options.map(o => ({ name: o.name, optimizes_for: o.optimizes_for, tradeoffs: o.tradeoffs })))};採用:${chosen};理由:${u.recommendation_reason || ''};提法批評:${u.framing_critique || '無'}${chosenName ? '(由使用者選定)' : '(決策核心 自決,decision_gate=proceed)'}。`,
+  `2. 建立(或覆寫)${RUN_DIR}/ctx.md:任務理解快照(引用式 context,供後續 agent 按需讀取),內容為以下 JSON 原文:\n${JSON.stringify(u)}\n` +
+  `3. append 到 .fable/DECISIONS.md:方案決策 —— 候選:${JSON.stringify(u.options.map(o => ({ name: o.name, optimizes_for: o.optimizes_for, tradeoffs: o.tradeoffs })))};採用:${chosen};理由:${u.recommendation_reason || ''};提法批評:${u.framing_critique || '無'}${chosenName ? '(由使用者選定)' : '(決策核心 自決,decision_gate=proceed)'}。`,
   'log:decision')
+// 引用式 context 的地基:ctx.md 落盤失敗就退回內嵌,不得讓瘦身 prompt 引用不存在的檔案(Codex 審查發現)
+const ctxOK = !!(ctxScribe && ctxScribe.written)
 
 // ---------- Phase 1:計畫競技場(天花板機制:複雜度決定生成冗餘,漏斗不變) ----------
 phase('Plan')
+// 引用不複製:完整理解已落盤 ctx.md,多消費者 prompt 只帶要點 + 路徑,按需讀取——
+// 同一份 context 不再被複製進競技場×2、裁判、洞察、重規劃各付一次錢
+const uBrief =
+  `任務:${task}\n重述:${u.restatement}\n採用方案:${chosen}\n` +
+  `完成定義:${u.definition_of_done.join(' / ')}\n檔案範圍:${(u.files_in_scope || []).join(', ') || '(見 ctx)'}\n` +
+  (ctxOK
+    ? `完整任務理解(全部選項/假設/解讀/邊界)見 ${RUN_DIR}/ctx.md —— 動工前先讀。`
+    : `完整任務理解(ctx.md 落盤失敗,改為內嵌):${JSON.stringify(u)}`)
 const planPrompt =
-  `基於以下已驗證的理解,依「採用方案:${chosen}」產出分步實作計畫(方案細節見 options)。\n` +
+  `基於已驗證的任務理解(要點與完整版取得方式如下),依「採用方案:${chosen}」產出分步實作計畫。\n` +
   `每步必須小到可以獨立驗證,寫明驗證方式,並標 risk_level(high:涉及不變量/跨模組/可能破壞資料)。\n` +
-  JSON.stringify(u)
+  uBrief
 
 // 立場配置:競技場只留給 complex;standard 單規劃者 —— 費用信封:全程 ≤ 裸 Fable 同任務成本
 const STANCES = { complex: ['風險優先:先堵最可能炸的', '長期品質優先:寧慢勿髒'], standard: [], trivial: [] }
@@ -315,7 +326,7 @@ if (stances.length >= 2) {
     plan = await agent(
       `你是計畫裁判。以下是 ${candidates.length} 份不同立場的候選計畫(對應立場:${JSON.stringify(stances)}):\n` +
       JSON.stringify(candidates) + `\n\n` +
-      `評估各案的骨架與亮點,輸出「合成後的最終計畫」:以最強的骨架為底,嫁接其他案值得保留的步驟或防護,並在 judge_rationale 說明取捨。\n任務理解:${JSON.stringify(u)}`,
+      `評估各案的骨架與亮點,輸出「合成後的最終計畫」:以最強的骨架為底,嫁接其他案值得保留的步驟或防護,並在 judge_rationale 說明取捨。\n${uBrief}`,
       { model: 'opus', effort: 'high', schema: PLAN, phase: 'Plan', label: 'plan-judge' })
     if (plan) log(`競技場:${candidates.length} 案合成;${plan.judge_rationale || ''}`)
   }
@@ -332,14 +343,14 @@ if (u.complexity === 'complex' && explorationOK()) {
   const insight = await agent(
     `你是洞察者。一個比這份計畫的作者更強的工程師,會看到什麼這份計畫沒看到的東西?\n` +
     `找:隱藏耦合、更根本的解法、三層間接之外的風險、計畫假設與 code 現實的落差。實際讀 code 求證,不要泛泛而談。\n` +
-    `計畫:${JSON.stringify(plan)}\n任務理解:${JSON.stringify(u)}`,
+    `計畫:${JSON.stringify(plan)}\n${uBrief}`,
     { model: 'opus', effort: 'high', schema: INSIGHT, phase: 'Plan', label: 'insight' })
   if (insight && insight.plan_verdict === 'needs_revision') {
     const fundamental = insight.insights.filter(i => i.severity === 'fundamental')
     log(`洞察代理判定計畫需修訂:${fundamental.map(i => i.observation).join(';')}`)
     const revised = await agent(
       `依洞察者的發現修訂計畫(只處理 fundamental 與 notable 級的發現,不要推翻整體方向):\n` +
-      `發現:${JSON.stringify(insight.insights)}\n原計畫:${JSON.stringify(plan)}\n任務理解:${JSON.stringify(u)}`,
+      `發現:${JSON.stringify(insight.insights)}\n原計畫:${JSON.stringify(plan)}\n${uBrief}`,
       { model: 'opus', effort: 'high', schema: PLAN, phase: 'Plan', label: 'plan-revised' })
     if (revised && revised.steps.length) plan = revised
     await scribe(`append 到 .fable/DECISIONS.md:洞察代理修訂計畫 —— ${JSON.stringify(insight.insights)}`, 'log:insight')
@@ -362,17 +373,27 @@ if (args && args.maverick && explorationOK()) {
 }
 
 log(`計畫 ${plan.steps.length} 步,最高風險在步驟 ${plan.riskiest_step}`)
-await scribe(
-  `更新 ${RUN_DIR}/TASK.md:狀態改為 executing,加入計畫步驟清單(checkbox,全部未勾):\n` +
+const planScribe = await scribe(
+  `1. 更新 ${RUN_DIR}/TASK.md:狀態改為 executing,加入計畫步驟清單(checkbox,全部未勾):\n` +
   plan.steps.map(s => `- [ ] 步驟${s.id}:${s.action}(驗證:${s.verification};風險:${s.risk_level})`).join('\n') +
-  (plan.judge_rationale ? `\n並 append 到 .fable/DECISIONS.md:計畫競技場合成理由 —— ${plan.judge_rationale}` : ''),
+  `\n2. append 到 ${RUN_DIR}/ctx.md 一節「## 計畫全文」,內容為以下 JSON 原文(含 files/fallback/riskiest_step):\n${JSON.stringify(plan)}` +
+  (plan.judge_rationale ? `\n3. append 到 .fable/DECISIONS.md:計畫競技場合成理由 —— ${plan.judge_rationale}` : ''),
   'log:plan')
+const planOnDisk = !!(planScribe && planScribe.written)
 
 // ---------- Phase 2:逐步執行 + 風險分級驗證(步驟相依 → 循序,不能平行) ----------
 const journal = []
 const queue = plan.steps.slice()
 let replans = 0
 const execNotes = [u.notes_for_executors, advisoryNotes].filter(s => s && s.trim()).join('\n')
+// 引用不複製:執行 prompt 只帶進度一行 + 上一步詳情;完整計畫與步驟清單在 TASK.md,按需讀。
+// (舊版每步注入全部 journal,context 成本隨步數平方成長)
+const planRef = planOnDisk
+  ? `(步驟清單見 ${RUN_DIR}/TASK.md;計畫全文含 files/fallback 見 ${RUN_DIR}/ctx.md「計畫全文」節,需要才讀)`
+  : `(計畫落盤失敗,如需全文請依本步驟資訊行事,不確定就回報 blocked)`
+const progressBrief = () => journal.length
+  ? `進度:${journal.map(j => `步驟${j.step}${j.passed ? '✓' : '✗'}`).join('、')};上一步詳情:${JSON.stringify(journal[journal.length - 1])}\n${planRef}`
+  : `這是第一步。${planRef}`
 
 while (queue.length) {
   const step = queue.shift()
@@ -391,7 +412,7 @@ while (queue.length) {
     result = await agent(
       `執行計畫步驟 ${step.id}:${step.action}\n` +
       `涉及檔案:${(step.files || []).join(', ') || '(依實況判斷)'}\n` +
-      `已完成的前置步驟:${JSON.stringify(journal)}\n` +
+      `${progressBrief()}\n` +
       (execNotes ? `理解者與洞察者的現場筆記(直覺與警告,認真對待):\n${execNotes}\n` : '') +
       (critique ? `上次嘗試被驗證者駁回,理由:${critique}\n請針對駁回理由修正後重做。\n` : '') +
       `完成後必須實際執行驗證:${step.verification},把真實輸出貼進 verification_output。\n` +
@@ -442,7 +463,7 @@ while (queue.length) {
     const rp = await agent(
       `原計畫的前提已被現實推翻:${result.invalidation_reason || result.summary}\n` +
       `已完成的步驟(既成事實,不可假裝沒發生;必要時排回退步驟):${JSON.stringify(journal)}\n` +
-      `原計畫:${JSON.stringify(plan)}\n任務理解:${JSON.stringify(u)}\n` +
+      `原計畫:${JSON.stringify(plan)}\n${uBrief}\n` +
       `基於現實重新規劃「剩餘」的工作,每步含驗證方式與 risk_level。`,
       { model: 'opus', effort: 'high', schema: PLAN, phase: 'Plan', label: 'replan' })
     if (!rp || !rp.steps.length) {
@@ -478,8 +499,9 @@ while (queue.length) {
 
 // 成功步驟批次落盤 + 交付檢查點(隨做隨寫:此後即使被截斷,交付物已在磁碟上,只缺審查背書)
 await scribe(
-  `更新 ${RUN_DIR}/TASK.md:以下步驟勾選完成 —— ${journal.filter(j => j.passed).map(j => `步驟${j.step}(${j.summary})`).join(';')}。狀態改為 reviewing。\n` +
-  `並 append 一節「## 交付檢查點(執行完成,${journal.filter(j => j.passed).length} 步)」:逐步驟摘要與驗證結果 ${JSON.stringify(journal)}——若後續階段中斷,交付物以此為準,狀態視為「已交付未審查」。`,
+  `更新 ${RUN_DIR}/TASK.md:狀態改為 reviewing;勾選已完成步驟,並 append 一節「## 交付檢查點(執行完成)」,內容為逐步驟結果:\n` +
+  journal.map(j => `- 步驟${j.step}${j.passed ? '✓' : '✗'}:${j.summary}`).join('\n') +
+  `\n——若後續階段中斷,交付物以此為準,狀態視為「已交付未審查」。`,
   'log:steps-batch')
 
 // ---------- Phase 3:跨模型對抗審查(不同家族的盲點不重疊) ----------
@@ -498,13 +520,45 @@ const specLawyerPrompt =
   `你的立場是反方:預設實作偏離了規格。注意區分「刻意的工程取捨」與「真的偏離」——取捨可列出但標 minor。\n` +
   `每個發現必須附 file:line 或指令輸出佐證。\n任務:${task}\n完成定義:${u.definition_of_done.join(' / ')}`
 
-async function tryReview(agentType, label, prompt) {
+// 跨模型審查不預設任何 plugin/skill 已安裝:橋接員 agent 現場偵測 CLI 並直呼。
+// (2026-07 實證:半壞的橋接層比不存在更危險——prompt 丟失時 schema 會逼它編造空審查,
+//  故偵測、echo 接地、失敗如實回報都是硬要求)
+// required 只鎖 available:不可用時不逼橋接員填假的審查結論(Codex 審查發現);
+// available=true 時的欄位完整性由下方 JS 驗證,不完整一律視為不可用
+const BRIDGE_REVIEW = {
+  type: 'object',
+  required: ['available'],
+  properties: {
+    available: { type: 'boolean', description: 'CLI 存在且外部模型 echo 接地通過才 true;false 時只填此欄,禁止用自己的意見冒充外部審查' },
+    echo: { type: 'string', description: '外部模型回覆中的複述句「原文」;available=true 時必填' },
+    approved: REVIEW.properties.approved,
+    findings: REVIEW.properties.findings,
+  },
+}
+
+async function tryReview(cliName, invokeHint, label, reviewInstruction) {
+  let r = null
   try {
-    return await agent(prompt, { agentType, schema: REVIEW, phase: 'CrossReview', label })
+    r = await agent(
+    `你是跨模型審查的橋接員:把審查題目交給本機的 ${cliName} CLI,帶回結構化結果。你自己不做審查。步驟:\n` +
+    `1. 偵測:執行 \`${cliName} --version\`(不存在再試 --help)。CLI 不存在 → available=false 直接回報。\n` +
+    `2. 把下方審查題目完整寫入暫存檔(UTF-8),並在題目開頭加一段:「回答前,先用一句話複述你被要求審查的目標;若看不到具體題目,回覆 ECHO-FAIL。」\n` +
+    `3. 在專案根目錄呼叫:${invokeHint}(確切旗標以 --help 自查為準;外部 CLI 需能自行讀取工作區的未提交變更)。\n` +
+    `4. 驗收:回覆開頭的複述句必須對得上題目。ECHO-FAIL、泛用開場白、複述錯配 → 換一種傳遞方式(inline 字串 / 檔案路徑)重試一次;仍失敗 → available=false 並如實說明。\n` +
+    `5. 忠實轉錄:把外部模型的發現轉成結構化輸出(echo 填它的複述句原文),不得摻入你自己的審查意見、不得補充它沒說的發現。\n\n` +
+    `===== 審查題目 =====\n${reviewInstruction}`,
+    { model: 'sonnet', schema: BRIDGE_REVIEW, phase: 'CrossReview', label })
   } catch (e) {
-    log(`${label} 不可用,略過:${e.message}`)
+    // 橋接員本身炸掉不得中斷主流程 —— 降級鏈(人格審查團)必須接得住(Codex 審查發現)
+    log(`${label}:橋接員失敗(${e.message}),略過`)
     return null
   }
+  if (!r || !r.available) { log(`${label}:CLI 不可用或接地失敗,略過`); return null }
+  if (typeof r.echo !== 'string' || typeof r.approved !== 'boolean' || !Array.isArray(r.findings)) {
+    log(`${label}:回報欄位不完整,視為不可用`)
+    return null
+  }
+  return r
 }
 
 // 預設單一跨模型審查者(取第一個可用);args.thorough 才雙評
@@ -512,21 +566,23 @@ async function tryReview(agentType, label, prompt) {
 let reviews = []
 if (args && args.thorough) {
   reviews = (await parallel([
-    () => tryReview('codex:codex-rescue', 'review:codex-spec-lawyer', specLawyerPrompt),
-    () => tryReview('agy-bridge', 'review:agy', reviewPrompt),
+    () => tryReview('codex', 'codex exec "$(cat 暫存檔)"', 'review:codex-spec-lawyer', specLawyerPrompt),
+    () => tryReview('agy', 'agy -p "$(cat 暫存檔)"', 'review:agy', reviewPrompt),
   ])).filter(Boolean)
 } else {
-  const r1 = await tryReview('codex:codex-rescue', 'review:codex', reviewPrompt)
+  const r1 = await tryReview('codex', 'codex exec "$(cat 暫存檔)"', 'review:codex', reviewPrompt)
   if (r1) { reviews = [r1] } else {
-    const r2 = await tryReview('agy-bridge', 'review:agy', reviewPrompt)
+    const r2 = await tryReview('agy', 'agy -p "$(cat 暫存檔)"', 'review:agy', reviewPrompt)
     if (r2) reviews = [r2]
   }
 }
 
 // echo 接地檢查:半壞的橋接可能產出格式正確但無內容的審查(2026-07 Agy 橋接空轉實例)——
 // 複述不出審查目標的審查作廢,寧可觸發降級/阻斷也不收虛假背書
+// 接地黑名單:ECHO-FAIL 與常見空轉開場白(best-effort;語意錯配靠橋接員驗收,JS 只攔明顯者)
+const ECHO_BOILERPLATE = /ECHO-?FAIL|what would you like|active approach|how can I help|我能幫|請提供更多/i
 const groundedOnly = rs => rs.filter(r => {
-  const grounded = r && typeof r.echo === 'string' && r.echo.trim().length >= 10
+  const grounded = r && typeof r.echo === 'string' && r.echo.trim().length >= 10 && !ECHO_BOILERPLATE.test(r.echo)
   if (!grounded) log('審查者 echo 接地失敗(無法具體複述審查目標),該份審查作廢')
   return grounded
 })
@@ -569,6 +625,14 @@ if (!reviews.length) {
   await scribe(`更新 ${RUN_DIR}/TASK.md:狀態改為 review_unavailable —— 跨模型與人格審查團備援全部失敗,變更已實作但未經任何審查。`, 'log:review-unavailable')
   return { status: 'review_unavailable', journal, reason: '所有審查者(Codex/Agy/人格審查團備援)均無有效回應;變更未經審查,不得視為完成' }
 }
+
+// approved 不得成為死信欄位:整體不批准卻無具體非 minor 發現 → 合成一條 major 交仲裁,
+// 由仲裁判斷「不批准」有無實質依據,不得靜默放行(Codex 審查發現)
+reviews.forEach((r, i) => {
+  if (r.approved === false && !r.findings.some(f => f.severity !== 'minor')) {
+    r.findings.push({ summary: `審查者(第 ${i + 1} 位)整體不批准,但未列出非 minor 具體發現——請實際讀變更仲裁其不批准是否有實質依據`, severity: 'major' })
+  }
+})
 
 // 聚合與去重是純 JS —— 模型無權決定「哪些發現可以不管」
 const rawFindings = reviews.flatMap(r => r.findings).filter(f => f.severity !== 'minor')

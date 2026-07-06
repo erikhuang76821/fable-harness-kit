@@ -61,10 +61,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\init.ps1 -Target C:\path\t
 1. **CLAUDE.md**:填掉所有 `TODO(...)` —— build/test/lint 指令、瑣碎任務的專案定義。
 2. **CONTEXT.md**:填領域名詞表和架構地圖。寫「為什麼這樣設計」,不要寫 code 本身能看出的東西。
 3. **docs/invariants.md**:列出這個專案「絕不能被破壞」的規則,一條一行。
-4. **確認跨模型 bridge 可用**:codex plugin(`codex:codex-rescue`)與 agy CLI(`agy-bridge`)。
-   都沒有也能跑 —— fable-emu 會自動降級為**同家族人格審查團**:規格律師(只看規格不看實作理由)
-   + 回歸獵人(只看 diff 不看任務目的),`thorough` 加不變量稽核。以資訊不對稱買回審查獨立性;
-   權重相同的共享盲點無法補回,由仲裁強制讀 code 攔截,並在留痕與最終回報明示降級成色。
+4. **跨模型審查只需 CLI 在 PATH**:`codex` 與 `agy` 任一可用即可——fable-emu 由橋接員 agent
+   現場偵測並直呼 CLI(echo 接地驗收,防半壞橋接編造空審查),**不需安裝任何 plugin/skill**。
+   兩個都沒有也能跑 —— 自動降級為**同家族人格審查團**:規格律師(有規格、無作者辯詞)
+   + 回歸獵人(有 diff 與一句話任務目的、無作者推理),`thorough` 加不變量稽核。
+   裁切原則:裁作者的說服,不裁判斷所需的事實。權重相同的共享盲點無法補回,
+   由仲裁強制讀 code 攔截,並在留痕與最終回報明示降級成色。
 5. **試跑一次**:丟一個小型真實任務,說
    「用 fable-emu workflow 處理:<任務描述>」,觀察各階段輸出並收緊 prompt/schema。
 6. (可選)自動 lint/typecheck:在**現有 PostToolUse 陣列追加** handler
@@ -85,6 +87,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\init.ps1 -Target C:\path\t
 - **分級路由**(CLAUDE.md):Tier 0 提詞層(預設)→ Tier 1 +fresh-context 驗證者(高風險單模組)→ Tier 2 fable-emu(跨模組/不可逆,僅互動式 session)。
 - **fable-emu 成本控制**:競技場與洞察代理只留 complex;審查預設單評者(`args.thorough` 才雙評);low 風險步驟 haiku 驗證;成功步驟批次落盤;檢討只在有事可檢討時跑。目標成本 ~$1.0-1.3。
 - **交付優先判準**:不可逆分歧若存在可逆預設路徑 → 先交付、爭議隨最終回報上報(`reversible_default`),不再為可逆工作擋單。
+- **引用不複製**:任務理解落盤 `.fable/runs/<slug>/ctx.md` 供各 agent 按需讀取,執行步驟只帶
+  進度一行 + 上一步詳情(舊版每步注入全部歷史,context 成本隨步數平方成長);大輸出寫檔回傳路徑。
 - **headless 截斷防護**:`fable-run.ps1` 監督式執行器(TASK.md 終態偵測 +
   `--continue` resumeFromRunId 續跑,上限 2 次)+ fable-emu 階段邊界交付檢查點(截斷不丟交付物)。
 - **Tier 3(前沿模式)**:難題不進編排管線(編排是中等任務的槓桿、難題的稅)——深潛用單一
