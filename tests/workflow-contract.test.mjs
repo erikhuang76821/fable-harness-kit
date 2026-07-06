@@ -140,6 +140,34 @@ test('全部審查管道失敗:硬阻斷 review_unavailable,不得靜默完成',
   assert.equal(result.status, 'review_unavailable')
 })
 
+test('process_mismatch 回「無。<解釋>」:不得誤觸安全閥短路(2026-07-06 金絲雀 bug 回歸鎖)', async () => {
+  const { result } = await run(TASK, {
+    understand: () => ({
+      restatement: 'r', higher_goal: 'g', framing_critique: '無',
+      options: [{ name: 'A', optimizes_for: 'x', sketch: 's', tradeoffs: 't' }, { name: 'B', optimizes_for: 'y', sketch: 's', tradeoffs: 't' }],
+      recommended_option: 'A', recommendation_reason: 'r', decision_gate: 'proceed', reversible_default: '',
+      complexity: 'trivial', notes_for_executors: '',
+      process_mismatch: '無。任務雖 trivial,但使用者明示維持完整管線,故不走 mismatch。',
+      definition_of_done: ['測試全綠'], assumptions: [], interpretations: [], files_in_scope: ['calc.py'],
+      out_of_scope: [], blocking_questions: [],
+    }),
+  })
+  assert.equal(result.status, 'done', '「無。解釋」語意上是無 mismatch,必須走完管線')
+})
+
+test('process_mismatch 有真實原因:正確短路上報', async () => {
+  const { result } = await run(TASK, {
+    understand: () => ({
+      restatement: 'r', higher_goal: 'g', framing_critique: '無',
+      options: [{ name: 'A', optimizes_for: 'x', sketch: 's', tradeoffs: 't' }, { name: 'B', optimizes_for: 'y', sketch: 's', tradeoffs: 't' }],
+      recommended_option: 'A', decision_gate: 'proceed', reversible_default: '',
+      complexity: 'standard', process_mismatch: '線上事故需即時止血,不適合五階段流程',
+      definition_of_done: ['d'], assumptions: [], files_in_scope: [], blocking_questions: [],
+    }),
+  })
+  assert.equal(result.status, 'process_mismatch')
+})
+
 test('blocking_questions:正確早退 needs_user_input', async () => {
   const { result } = await run(TASK, {
     understand: () => Object.assign(makeStubs().agent && {}, {

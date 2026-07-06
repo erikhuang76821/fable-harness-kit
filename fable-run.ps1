@@ -29,6 +29,8 @@ function Get-WorkflowState([string]$dir) {
   $raw = Get-Content $tasks[0].FullName -Raw
   $status = ''
   $m = [regex]::Matches($raw, '狀態[^\w]{0,6}([a-z_]+)')
+  # 後備:紀錄員雖被要求固定寫「狀態=<token>」,但曾實證翻譯成英文標頭(2026-07-06 金絲雀)——雙保險
+  if ($m.Count -eq 0) { $m = [regex]::Matches($raw, '(?i)Current State[^\w]{0,8}([a-z_]+)') }
   if ($m.Count -gt 0) { $status = $m[$m.Count - 1].Groups[1].Value }
   if ($terminal -contains $status) { return @{ state = 'terminal'; status = $status } }
   return @{ state = 'truncated'; status = $status }

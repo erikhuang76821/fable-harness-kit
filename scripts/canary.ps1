@@ -69,6 +69,7 @@ $tasks = Get-ChildItem "$Workdir\.fable\runs\*\TASK.md" -ErrorAction SilentlyCon
 if ($tasks) {
   $raw = Get-Content $tasks[0].FullName -Raw
   $m = [regex]::Matches($raw, '狀態[^\w]{0,6}([a-z_]+)')
+  if ($m.Count -eq 0) { $m = [regex]::Matches($raw, '(?i)Current State[^\w]{0,8}([a-z_]+)') }
   $status = if ($m.Count -gt 0) { $m[$m.Count - 1].Groups[1].Value } else { '(未知)' }
   Write-Host "1. TASK 終態:$status(期望 done)"
 } else { Write-Host "1. TASK.md 不存在 —— workflow 可能未啟動,檢查 run-logs" }

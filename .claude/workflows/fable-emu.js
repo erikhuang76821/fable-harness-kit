@@ -205,7 +205,9 @@ async function scribe(instruction, label) {
   let s = null
   try {
     s = await agent(
-      `你是紀錄員,只做指定的檔案建立/更新/append,不修改任何其他檔案、不發表意見、不改寫既有內容(TASK.md 的狀態更新除外)。每筆紀錄附上實際當下時間戳(自行取得)。寫入後確認檔案內容再回報。\n${instruction}`,
+      `你是紀錄員,只做指定的檔案建立/更新/append,不修改任何其他檔案、不發表意見、不改寫既有內容(TASK.md 的狀態更新除外)。每筆紀錄附上實際當下時間戳(自行取得)。\n` +
+      `機器可讀鐵則:凡建立或更新 TASK.md,檔內必須有獨立一行、固定格式的狀態行「狀態=<小寫英文token>」(token 用指示裡給的狀態字,例:狀態=executing)。此行供 fable-run 機器解析,不得翻譯成英文標頭、不得改寫格式——違反會導致監督器誤判截斷(2026-07-06 金絲雀實證:白燒兩次續跑)。\n` +
+      `寫入後確認檔案內容再回報。\n${instruction}`,
       { model: 'haiku', effort: 'low', phase: 'Log', schema: SCRIBE_RESULT, label: label || 'scribe' })
   } catch (e) {
     log(`⚠ 紀錄員 agent 失敗(${label || 'scribe'}):${e.message}`)
@@ -245,7 +247,11 @@ if (u.blocking_questions.length > 0) {
 }
 
 // 後設認知安全閥:流程不合身時顯式上報,而不是硬套五階段 —— 走的是和 decision_gate 同一條顯式路,不是靜默繞過
-if (u.process_mismatch && u.process_mismatch !== '無') {
+// 語意判定而非精確比對(2026-07-06 金絲雀實證:模型常回「無。<解釋>」,exact-equality 會誤觸短路):
+// trim 後為空、等於「無」、或「無」後緊接標點/空白 → 視為無 mismatch;「無法繼續」這類以無起頭接實字的仍是真原因
+const pmRaw = (u.process_mismatch || '').trim()
+const pmIsNone = pmRaw === '' || /^無([。,,;;、\s]|$)/.test(pmRaw)
+if (!pmIsNone) {
   await scribe(
     `append 到 .fable/DECISIONS.md:任務「${task}」判定不適合 fable-emu 流程,已上報。原因與建議:${u.process_mismatch}`,
     'log:mismatch')
