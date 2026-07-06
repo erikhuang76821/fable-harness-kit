@@ -25,7 +25,8 @@ $time = $Matches[2]
 $canary = Join-Path $PSScriptRoot 'canary.ps1'
 if (-not (Test-Path $canary)) { Write-Error "canary.ps1 不存在:$canary(不註冊指向空檔的排程)"; exit 1 }
 $logPath = Join-Path $env:TEMP 'fable-canary-weekly.log'
-$cmd = "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$canary' *>> '$logPath'`""
+# schtasks /TR 的引號嵌套很脆:改走 cmd /c + 反斜線跳脫雙引號(PS→native 傳遞後成為字面引號)
+$cmd = 'cmd /c powershell -NoProfile -ExecutionPolicy Bypass -File \"' + $canary + '\" >> \"' + $logPath + '\" 2>&1'
 
 schtasks /Create /F /TN $taskName /SC WEEKLY /D $day /ST $time /TR $cmd
 if ($LASTEXITCODE -eq 0) {
