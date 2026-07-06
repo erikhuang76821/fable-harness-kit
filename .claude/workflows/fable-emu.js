@@ -199,9 +199,17 @@ const slug = task.toLowerCase().replace(/[^a-z0-9一-鿿]+/g, '-').replace(/^-+|
 const RUN_DIR = `.fable/runs/${slug}`
 
 async function scribe(instruction, label) {
-  const s = await agent(
-    `你是紀錄員,只做指定的檔案建立/更新/append,不修改任何其他檔案、不發表意見、不改寫既有內容(TASK.md 的狀態更新除外)。每筆紀錄附上實際當下時間戳(自行取得)。寫入後確認檔案內容再回報。\n${instruction}`,
-    { model: 'haiku', effort: 'low', phase: 'Log', schema: SCRIBE_RESULT, label: label || 'scribe' })
+  // 紀錄員 throw 不得滅團(2026-07-06 實測:haiku 幻覺「已呼叫過 StructuredOutput」→ throw
+  // 未攔截 → 49 分鐘完整 run 在最後一支 log:final 被標 failed)。scribe 全程被呼叫 ~15 次、
+  // 用 haiku+low(最易漏工具協定),任一 throw 都是系統性風險——落盤是輔助,永遠不值得陪葬主流程。
+  let s = null
+  try {
+    s = await agent(
+      `你是紀錄員,只做指定的檔案建立/更新/append,不修改任何其他檔案、不發表意見、不改寫既有內容(TASK.md 的狀態更新除外)。每筆紀錄附上實際當下時間戳(自行取得)。寫入後確認檔案內容再回報。\n${instruction}`,
+      { model: 'haiku', effort: 'low', phase: 'Log', schema: SCRIBE_RESULT, label: label || 'scribe' })
+  } catch (e) {
+    log(`⚠ 紀錄員 agent 失敗(${label || 'scribe'}):${e.message}`)
+  }
   if (!s || !s.written) {
     log(`⚠ 落盤失敗(${label || 'scribe'}):${(s && s.error) || '紀錄員未回應'} —— .fable/ 留痕不完整,收尾時需人工確認`)
   }
@@ -542,10 +550,10 @@ async function tryReview(cliName, invokeHint, label, reviewInstruction) {
     r = await agent(
     `你是跨模型審查的橋接員:把審查題目交給本機的 ${cliName} CLI,帶回結構化結果。你自己不做審查。步驟:\n` +
     `1. 偵測:執行 \`${cliName} --version\`(不存在再試 --help)。CLI 不存在 → available=false 直接回報。\n` +
-    `2. 把下方審查題目完整寫入暫存檔(UTF-8),並在題目開頭加一段:「回答前,先用一句話複述你被要求審查的目標;若看不到具體題目,回覆 ECHO-FAIL。」\n` +
-    `3. 在專案根目錄呼叫:${invokeHint}(確切旗標以 --help 自查為準;外部 CLI 需能自行讀取工作區的未提交變更)。\n` +
+    `2. 先取得工作區變更全文:git diff + git status;有未追蹤的新檔案就把其內容一併附上。把「審查題目 + 變更全文」寫入暫存檔(UTF-8),題目開頭加一段:「回答前,先用一句話複述你被要求審查的目標;若看不到具體題目與 diff,回覆 ECHO-FAIL。」\n` +
+    `3. 在專案根目錄呼叫:${invokeHint}(確切旗標以 --help 自查為準)。**不得依賴外部 CLI 自行讀取工作區**——有些 CLI(如 agy)不繼承呼叫端 cwd,看不到專案檔案;審查素材必須內嵌在題目裡。\n` +
     `4. 驗收:回覆開頭的複述句必須對得上題目。ECHO-FAIL、泛用開場白、複述錯配 → 換一種傳遞方式(inline 字串 / 檔案路徑)重試一次;仍失敗 → available=false 並如實說明。\n` +
-    `5. 忠實轉錄:把外部模型的發現轉成結構化輸出(echo 填它的複述句原文),不得摻入你自己的審查意見、不得補充它沒說的發現。\n\n` +
+    `5. 忠實轉錄:把外部模型的發現轉成結構化輸出(echo 填它的複述句原文),不得摻入你自己的審查意見、不得補充它沒說的發現。外部模型若明確表達不批准/反對合併,必須填 approved=false——即使它列的發現全是 minor。\n\n` +
     `===== 審查題目 =====\n${reviewInstruction}`,
     { model: 'sonnet', schema: BRIDGE_REVIEW, phase: 'CrossReview', label })
   } catch (e) {
@@ -554,9 +562,15 @@ async function tryReview(cliName, invokeHint, label, reviewInstruction) {
     return null
   }
   if (!r || !r.available) { log(`${label}:CLI 不可用或接地失敗,略過`); return null }
-  if (typeof r.echo !== 'string' || typeof r.approved !== 'boolean' || !Array.isArray(r.findings)) {
-    log(`${label}:回報欄位不完整,視為不可用`)
+  if (typeof r.echo !== 'string' || !Array.isArray(r.findings)) {
+    log(`${label}:回報缺 echo/findings,無法驗收,視為不可用`)
     return null
+  }
+  if (typeof r.approved !== 'boolean') {
+    // 模型無阻擋級異議時會合法省略 approved(schema 只鎖 available)——缺省不判死,
+    // 依發現嚴重度推導(2026-07-06 實測:codex+agy 雙雙成功接地卻因此被整份誤棄,
+    // 連 major 發現一起丟,還誤報「CLI 不可用」)
+    r.approved = !r.findings.some(f => f && (f.severity === 'critical' || f.severity === 'major'))
   }
   return r
 }
@@ -595,7 +609,7 @@ reviews = groundedOnly(reviews)
 let reviewMode = 'cross-model'
 if (!reviews.length) {
   reviewMode = 'same-family-panel'
-  log(`Codex/Agy 均不可用,降級為同家族人格審查團(規格律師 + 回歸獵人${args && args.thorough ? ' + 不變量稽核' : ''});無跨家族盲點覆蓋`)
+  log(`Codex/Agy 均未產出可用審查(CLI 不存在、接地失敗、或驗收不過——見前述 log),降級為同家族人格審查團(規格律師 + 回歸獵人${args && args.thorough ? ' + 不變量稽核' : ''});無跨家族盲點覆蓋`)
   const panel = [
     () => agent(
       `你是規格律師。先不看任何實作:根據下列任務語句與完成定義,獨立推導「正確的實作應該具備哪些可觀察行為」,列成清單;然後才審查目前工作區的所有未提交變更,逐條對照你的清單。\n` +
@@ -750,7 +764,7 @@ return {
   cross_review: {
     reviewers: reviews.length,
     mode: reviewMode,
-    degradation_note: reviewMode === 'same-family-panel' ? '跨模型 CLI 不可用,本次審查為同家族人格團(資訊不對稱設計),無跨家族盲點覆蓋' : null,
+    degradation_note: reviewMode === 'same-family-panel' ? '跨模型審查未產出可用結果(CLI 不存在/接地失敗/驗收不過,見執行 log),本次審查為同家族人格團(資訊不對稱設計),無跨家族盲點覆蓋' : null,
     findings_confirmed_and_fixed: fixedFindings,
   },
   remaining_gaps: gaps,
