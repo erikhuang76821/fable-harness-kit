@@ -1,0 +1,17 @@
+{
+  "$comment": "反方人格的承重條款清單(manifest 制,取代關鍵字全文比對——措辭調整不紅,核心條款消失才紅)。每條 clause 必須同時出現在 agentFile 與 fable-emu.js。改人格設計的程序:先改本檔 → 同步兩邊 → node --test tests/ 必須綠。",
+  "personas": [
+    {
+      "agentFile": ".claude/agents/spec-lawyer.md",
+      "clauses": ["先不看任何實作", "做了但不是要的"]
+    },
+    {
+      "agentFile": ".claude/agents/regression-hunter.md",
+      "clauses": ["任務目的", "呼叫點"]
+    },
+    {
+      "agentFile": ".claude/agents/invariant-auditor.md",
+      "clauses": ["invariants.md", "不變量"]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "$comment": "workflow 狀態契約的唯一來源。消費者:(1) fable-run.ps1 於執行期載入 terminal 清單(截斷偵測);(2) fable-emu.js 因 workflow 沙箱無檔案存取,以字面值使用,由 tests/workflow-contract.test.mjs 於測試期與本檔對帳。新增/改名狀態的程序:先改本檔 → 改兩個消費者 → node --test tests/ 必須綠。",
+  "terminal": [
+    "done",
+    "done_with_gaps",
+    "blocked",
+    "blocked_on_review",
+    "budget_exhausted",
+    "needs_user_input",
+    "needs_user_decision",
+    "review_unavailable",
+    "process_mismatch",
+    "failed",
+    "winner_selected",
+    "no_qualified_winner"
+  ],
+  "non_terminal": [
+    "planning",
+    "executing",
+    "reviewing",
+    "reviewed"
+  ]
+}

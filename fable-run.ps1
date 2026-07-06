@@ -10,9 +10,17 @@ param(
   [string]$AllowedTools = 'Read,Edit,Write,Glob,Grep,TodoWrite,Task,Agent,Workflow,Skill,Bash(node:*),Bash(npm:*),Bash(npx:*),Bash(git:*),Bash(ls:*),Bash(cat:*),Bash(date:*)'
 )
 
+# 終態清單以 .claude/status-contract.json 為單一來源(執行期載入);下列硬編碼僅為契約檔缺失時的後備
 $terminal = @('done', 'done_with_gaps', 'blocked', 'blocked_on_review', 'budget_exhausted',
               'needs_user_input', 'needs_user_decision', 'review_unavailable', 'process_mismatch',
               'failed', 'winner_selected', 'no_qualified_winner')
+$contractPath = Join-Path $Target '.claude\status-contract.json'
+if (Test-Path $contractPath) {
+  try {
+    $loaded = @((Get-Content $contractPath -Raw -Encoding utf8 | ConvertFrom-Json).terminal)
+    if ($loaded.Count -gt 0) { $terminal = $loaded }
+  } catch { Write-Host "WARN: status-contract.json 解析失敗,使用內建後備終態清單" }
+}
 
 function Get-WorkflowState([string]$dir) {
   # 回傳:terminal / truncated / none(沒用 workflow)

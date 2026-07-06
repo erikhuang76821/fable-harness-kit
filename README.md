@@ -34,9 +34,12 @@ fable-harness-kit/
 │   ├── invariants.md                # 模板:不變量清單(弱模型的護欄)
 │   └── adr/
 │       └── 0001-adopt-fable-harness.md  # ADR 格式範例(兼記錄本套件的採用)
-├── tests/                           # hooks 的行為契約(Pester 3.4 相容):改 hook 必須跑綠
+├── scripts/
+│   └── canary.ps1                   # 金絲雀:fable-emu 修改後一鍵端到端實跑(固定 fixture + artifact)
+├── tests/                           # 行為契約:hooks(Pester)+ workflow(node --test,stub 執行器)+ 人格同步
 └── .claude/
     ├── settings.json                # hooks 配置(六支,含兩支 Stop gate:verify 在前、retro 在後)
+    ├── status-contract.json         # workflow 狀態契約單源(fable-run 執行期載入;fable-emu 測試期對帳)
     ├── agents/
     │   ├── spec-lawyer.md           # 反方:規格律師(先推導期望行為再對照 diff;不吃作者辯詞)
     │   ├── regression-hunter.md     # 反方:回歸獵人(只看 diff+一句話目的;義務 grep 呼叫點+跑測試)
@@ -79,6 +82,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\init.ps1 -Target C:\path\t
    由仲裁強制讀 code 攔截,並在留痕與最終回報明示降級成色。
 5. **試跑一次**:丟一個小型真實任務,說
    「用 fable-emu workflow 處理:<任務描述>」,觀察各階段輸出並收緊 prompt/schema。
+   之後凡修改 fable-emu.js:先跑契約測試
+   `node --test tests/workflow-contract.test.mjs tests/persona-sync.test.mjs`(stub 執行器,秒級),
+   merge 前再跑 `scripts/canary.ps1` 端到端金絲雀(~$1,固定 fixture,artifact 留檔)——
+   unit 保契約、金絲雀保現實(haiku 幻覺這類真實失效只有實跑抓得到),把結果貼進回報。
 6. (可選)自動 lint/typecheck:在**現有 PostToolUse 陣列追加** handler
    (⚠️ 不要整段替換 —— 會覆蓋內建的 rule-guard 留痕 hook):
 
