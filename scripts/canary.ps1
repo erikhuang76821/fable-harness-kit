@@ -35,12 +35,19 @@ def test_add_zero():
     assert add(0, 5) == 5
 '@
 
-# 3) git init(fable-emu 的審查層依賴 git diff)
+# 3) git init + baseline commit(fable-emu 的審查層依賴 git diff;無 baseline 則證據殘缺)
 Push-Location $Workdir
 try {
-  git init -q 2>$null
-  git add -A 2>$null
-  git commit -q -m "canary fixture" 2>$null
+  git init -q
+  # 無全域 git 身分的機器上 commit 會失敗 → 設 local identity,不污染全域
+  git config user.name 'fable-canary'
+  git config user.email 'canary@local'
+  git add -A
+  git commit -q -m "canary fixture"
+  if ($LASTEXITCODE -ne 0) {
+    Write-Error "baseline commit 失敗(exit $LASTEXITCODE)——沒有 baseline 的金絲雀會讓審查層的 git diff 證據殘缺,中止。"
+    exit 1
+  }
 } finally { Pop-Location }
 
 if ($SetupOnly) {
