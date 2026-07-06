@@ -21,19 +21,23 @@ $resultsFile = Join-Path $resultsDir "results-$stamp.jsonl"
 $AT = 'Read,Edit,Write,Glob,Grep,TodoWrite,Task,Agent,Workflow,Skill,Bash(node:*),Bash(npm:*),Bash(npx:*),Bash(git:*),Bash(ls:*),Bash(cat:*),Bash(date:*),Bash(python:*),Bash(python3:*),Bash(py:*),Bash(pytest:*)'
 
 function Get-CostFromLogs([string[]]$logPaths) {
+  # total_cost_usd 為單一行程的累計值:同一 log 取末筆,跨 log 加總(與 fable-run 同語意)
   $cost = 0.0; $in = 0; $out = 0; $has = $false
   foreach ($p in $logPaths) {
     if (-not (Test-Path $p)) { continue }
+    $fileCost = $null; $fileIn = 0; $fileOut = 0
     foreach ($line in (Get-Content $p)) {
       try { $ev = $line | ConvertFrom-Json } catch { continue }
       if ($ev.type -eq 'result') {
-        if ($null -ne $ev.total_cost_usd) { $cost += [double]$ev.total_cost_usd; $has = $true }
+        if ($null -ne $ev.total_cost_usd) { $fileCost = [double]$ev.total_cost_usd }
         if ($ev.usage) {
-          if ($ev.usage.input_tokens) { $in += [long]$ev.usage.input_tokens }
-          if ($ev.usage.output_tokens) { $out += [long]$ev.usage.output_tokens }
+          if ($ev.usage.input_tokens) { $fileIn = [long]$ev.usage.input_tokens }
+          if ($ev.usage.output_tokens) { $fileOut = [long]$ev.usage.output_tokens }
         }
       }
     }
+    if ($null -ne $fileCost) { $cost += $fileCost; $has = $true }
+    $in += $fileIn; $out += $fileOut
   }
   return @{ cost = $(if ($has) { [math]::Round($cost, 4) } else { $null }); in = $in; out = $out }
 }

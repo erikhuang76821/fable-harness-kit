@@ -13,7 +13,7 @@ function Get-ArmDiff([string]$wd) {
   Push-Location $wd
   try {
     git add -A *> $null
-    $d = git diff --cached HEAD -- . ':(exclude).claude' ':(exclude)CLAUDE.md' ':(exclude)CONTEXT.md' ':(exclude)docs' ':(exclude)tests' ':(exclude)scripts' ':(exclude)fable-run.ps1' ':(exclude).fable' ':(exclude).gitignore' ':(exclude)bench-fable.jsonl' 2>&1 | Out-String
+    $d = git diff --cached HEAD -- . ':(exclude).claude' ':(exclude)CLAUDE.md' ':(exclude)CONTEXT.md' ':(exclude)docs' ':(exclude)tests' ':(exclude)scripts' ':(exclude)benchmark' ':(exclude)fable-run.ps1' ':(exclude).fable' ':(exclude).gitignore' ':(exclude)bench-fable.jsonl' 2>&1 | Out-String
     return $d
   } finally { Pop-Location }
 }
@@ -25,12 +25,12 @@ foreach ($g in $tasks) {
   if (-not $fable -or -not $kit) { Write-Host "[$($g.Name)] 缺臂,跳過盲評"; continue }
   if (-not $fable.pass -or -not $kit.pass) { Write-Host "[$($g.Name)] 有臂未過驗收(fable=$($fable.pass) kit=$($kit.pass)),依協議不進品質盲評"; continue }
 
-  # 匿名化:隨機決定 X/Y 映射,評分完成前不揭盲
+  # 匿名化:隨機決定 X/Y 映射。映射只留在記憶體,**兩位裁判都評完才落盤**——
+  # 裁判(codex read-only)能讀 repo 檔案,提前落盤 = 洩盲(Codex 審查發現)
   $swap = ((Get-Random -Maximum 2) -eq 1)
   $x = if ($swap) { $kit } else { $fable }
   $y = if ($swap) { $fable } else { $kit }
-  @{ task = $g.Name; X = $x.arm; Y = $y.arm } | ConvertTo-Json |
-    Set-Content (Join-Path $resultsDir "judge-mapping-$($g.Name)-$stamp.json") -Encoding utf8
+  $mapping = @{ task = $g.Name; X = $x.arm; Y = $y.arm }
 
   $taskText = (Get-Content (Join-Path $benchDir "fixtures\$($g.Name)\task.txt") -Raw -Encoding utf8).Trim()
   $promptFile = Join-Path $resultsDir "judge-prompt-$($g.Name)-$stamp.txt"
@@ -61,6 +61,8 @@ verdict: <X|Y|tie> — <一句話理由>
   $codexOut | Set-Content (Join-Path $resultsDir "judge-$($g.Name)-codex-$stamp.txt") -Encoding utf8
   $agyOut = agy --model "Gemini 3.1 Pro (High)" -p "$(Get-Content $promptFile -Raw -Encoding utf8)" 2>&1 | Out-String
   $agyOut | Set-Content (Join-Path $resultsDir "judge-$($g.Name)-agy-$stamp.txt") -Encoding utf8
-  Write-Host "[$($g.Name)] 完成;原始回覆與映射已留檔於 benchmark\results\"
+  # 評分完成,此刻才揭盲落盤
+  $mapping | ConvertTo-Json | Set-Content (Join-Path $resultsDir "judge-mapping-$($g.Name)-$stamp.json") -Encoding utf8
+  Write-Host "[$($g.Name)] 完成;原始回覆與映射(評後落盤)已留檔於 benchmark\results\"
 }
 Write-Host "盲評結束。揭盲與彙整:對照 judge-mapping-*.json 讀 judge-*-{codex,agy}.txt。"

@@ -14,6 +14,9 @@ if (-not (Test-Path $Target -PathType Container)) {
 }
 
 $exclude = @('README.md', 'init.ps1', 'LICENSE')
+# benchmark/ 是 kit 的開發材料(對照實驗協議與 fixtures),不是部署物——
+# 且鋪進受測專案會污染 benchmark 公平性(kit 臂看得到題庫與驗收邏輯)
+$excludePrefix = @('benchmark\')
 $copied = 0
 $skipped = 0
 
@@ -30,6 +33,7 @@ if ($hadSettings -or $hadHooks -or $hadOtherHarness) {
 Get-ChildItem -Path $src -Recurse -File | ForEach-Object {
   $rel = $_.FullName.Substring($src.Length + 1)
   if ($exclude -contains $rel) { return }
+  foreach ($p in $excludePrefix) { if ($rel.StartsWith($p)) { return } }
   $dest = Join-Path $Target $rel
   if (Test-Path $dest) {
     Write-Host "SKIP(已存在,未覆蓋): $rel"

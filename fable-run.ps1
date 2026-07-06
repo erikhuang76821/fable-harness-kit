@@ -47,7 +47,8 @@ function Get-LastResult([string]$logPath) {
 }
 
 function Get-RunCost([string]$logPath) {
-  # 成本遙測:stream-json 的 result 事件自帶 total_cost_usd 與 usage —— 直接取用,不自行估價
+  # 成本遙測:stream-json 的 result 事件自帶 total_cost_usd 與 usage —— 直接取用,不自行估價。
+  # 語意:total_cost_usd 為該行程的「累計值」——同一 log 內取「末筆」(非加總,防重複計);跨輪(多個 log)才加總
   $cost = $null; $inTok = 0; $outTok = 0
   if (-not (Test-Path $logPath)) { return $null }
   foreach ($line in (Get-Content $logPath)) {
@@ -108,7 +109,8 @@ try {
     }
   }
   $ws2 = Get-WorkflowState $Target
-  $costStr = if ($hasCost) { '${0:N2}' -f $totalCost } else { '(無 total_cost_usd 欄位)' }
+  # 全精度紀錄(N2 會把小額 run 磨成 $0.00,不堪審計用——Codex 審查發現)
+  $costStr = if ($hasCost) { '$' + $totalCost.ToString('0.####', [System.Globalization.CultureInfo]::InvariantCulture) } else { '(無 total_cost_usd 欄位)' }
   Write-Host "`n===== 成本遙測 ====="
   Write-Host "本次共 $rounds 輪;成本:$costStr;tokens in/out:$totalIn/$totalOut"
   $taskSnippet = if ($Task.Length -gt 60) { $Task.Substring(0, 60) + '…' } else { $Task }

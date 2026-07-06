@@ -16,10 +16,14 @@ if ($Unregister) {
   exit $LASTEXITCODE
 }
 
-$parts = $At -split '\s+'
-$day = $parts[0].ToUpper().Substring(0, 3)
-$time = $parts[1]
+if ($At -notmatch '^([A-Za-z]{3,})\s+(\d{1,2}:\d{2})$') {
+  Write-Error "無效的 -At 格式:「$At」。格式:<星期> <HH:mm>,例:Mon 09:30"
+  exit 1
+}
+$day = $Matches[1].ToUpper().Substring(0, 3)
+$time = $Matches[2]
 $canary = Join-Path $PSScriptRoot 'canary.ps1'
+if (-not (Test-Path $canary)) { Write-Error "canary.ps1 不存在:$canary(不註冊指向空檔的排程)"; exit 1 }
 $logPath = Join-Path $env:TEMP 'fable-canary-weekly.log'
 $cmd = "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$canary' *>> '$logPath'`""
 
