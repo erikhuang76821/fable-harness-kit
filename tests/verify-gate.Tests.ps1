@@ -9,9 +9,13 @@ function New-Payload($transcript, $stopActive = $false) {
 
 $EDIT_PS1  = '{"type":"assistant","name":"Edit","input":{"file_path":"C:\\proj\\src\\app.ps1","old_string":"a","new_string":"b"}}'
 $EDIT_MD   = '{"type":"assistant","name":"Write","input":{"file_path":"C:\\proj\\notes\\README.md","content":"x"}}'
+$EDIT_DOCKER = '{"type":"assistant","name":"Edit","input":{"file_path":"C:\\proj\\Dockerfile","old_string":"a","new_string":"b"}}'
+$EDIT_NB   = '{"type":"assistant","name":"NotebookEdit","input":{"notebook_path":"C:\\proj\\analysis.ipynb","new_source":"x"}}'
 $RUN_PYTEST = '{"type":"assistant","name":"Bash","input":{"command":"python -m pytest tests/ -v"}}'
 $RUN_PESTER = '{"type":"assistant","name":"PowerShell","input":{"command":"Invoke-Pester -Path tests"}}'
+$RUN_CHAINED = '{"type":"assistant","name":"Bash","input":{"command":"cd src && pytest -q"}}'
 $RUN_FAKE   = '{"type":"assistant","name":"Bash","input":{"command":"cat latest.log && echo contest"}}'
+$MENTION_ONLY = '{"type":"assistant","name":"Bash","input":{"command":"echo pytest 稍後再跑 && rg pytest docs/"}}'
 $DECLARED   = '{"type":"assistant","text":"變更完成。已修改、未驗證(無對應測試環境)。"}'
 
 Describe 'verify-gate' {
@@ -83,5 +87,35 @@ Describe 'verify-gate' {
     New-Transcript -Path $script:tpath -Lines @($RUN_FAKE)
     $r = Invoke-Hook 'verify-gate.ps1' (New-Payload $script:tpath) $script:root
     $r.StdOut | Should Not Match 'block'
+  }
+
+  It '順序判準:先測後改(測試在修改之前)→ 仍 block' {
+    New-Transcript -Path $script:tpath -Lines @($RUN_PYTEST, $EDIT_PS1)
+    $r = Invoke-Hook 'verify-gate.ps1' (New-Payload $script:tpath) $script:root
+    $r.StdOut | Should Match '"decision"\s*:\s*"block"'
+  }
+
+  It '假證據:echo pytest / rg pytest 只是提到測試字樣 → 仍 block' {
+    New-Transcript -Path $script:tpath -Lines @($EDIT_PS1, $MENTION_ONLY)
+    $r = Invoke-Hook 'verify-gate.ps1' (New-Payload $script:tpath) $script:root
+    $r.StdOut | Should Match '"decision"\s*:\s*"block"'
+  }
+
+  It '鏈式指令:cd src && pytest(token 在分隔符後)→ 放行' {
+    New-Transcript -Path $script:tpath -Lines @($EDIT_PS1, $RUN_CHAINED)
+    $r = Invoke-Hook 'verify-gate.ps1' (New-Payload $script:tpath) $script:root
+    $r.StdOut | Should Not Match 'block'
+  }
+
+  It '無副檔名程式檔:改 Dockerfile 無測試 → block' {
+    New-Transcript -Path $script:tpath -Lines @($EDIT_DOCKER)
+    $r = Invoke-Hook 'verify-gate.ps1' (New-Payload $script:tpath) $script:root
+    $r.StdOut | Should Match '"decision"\s*:\s*"block"'
+  }
+
+  It 'NotebookEdit 也算程式修改 → 無測試則 block' {
+    New-Transcript -Path $script:tpath -Lines @($EDIT_NB)
+    $r = Invoke-Hook 'verify-gate.ps1' (New-Payload $script:tpath) $script:root
+    $r.StdOut | Should Match '"decision"\s*:\s*"block"'
   }
 }

@@ -76,7 +76,7 @@ repo/
 | PostToolUse(lint/typecheck 自動跑) | 錯誤直接回饋給模型 | ⚠️ 選配:在**現有 PostToolUse 陣列追加** handler,勿覆蓋 rule-guard |
 
 hooks 的行為契約由 `tests/`(Pester)鎖定——改 hook 必須跑綠才算完成;
-兩支 Stop gate 各擋一次,任一擋過後 `stop_hook_active` 使另一支放行(單次收尾最多被擋一次)。
+兩支 Stop gate 各自因 `stop_hook_active` 最多擋一次(最壞單次收尾被擋兩次,不會無限迴圈)。
 
 ### 2.4 模型路由(判斷密度決定模型等級)
 

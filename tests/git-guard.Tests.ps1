@@ -24,6 +24,7 @@ Describe 'git-guard 危險指令(必須 exit 2)' {
     'rm -fr ~/project',
     'rm -rf C:/Users/x/repo',
     'Remove-Item -Recurse -Force C:\repo',
+    'Remove-Item -Recurse -Force -WhatIf:$false C:\repo',   # 顯式關掉 dry-run = 真刪,不得豁免
     'rd /s C:\repo'
   )
   foreach ($cmd in $dangerous) {
@@ -46,6 +47,9 @@ Describe 'git-guard 安全指令(必須 exit 0)' {
     'rm -r ./local-tmp',             # 無 -f
     'rm -f single-file.txt',         # 無 -r 且非根路徑
     'Remove-Item -Recurse .\tmp',    # 無 -Force
+    'Remove-Item -Recurse -Force -WhatIf C:\repo',        # dry-run 合法
+    'Remove-Item -Recurse -Force -WhatIf:$true C:\repo',  # 顯式 dry-run 亦合法
+    'Remove-Item -Recurse -Force .\build',                # 相對路徑
     'git status'
   )
   foreach ($cmd in $safe) {
