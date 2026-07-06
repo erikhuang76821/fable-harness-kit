@@ -19,11 +19,11 @@ fable-harness-kit/
 ├── README.md                        # 本檔(不會被複製到目標 repo)
 ├── init.ps1                         # 一鍵初始化腳本(不會被複製)
 ├── CLAUDE.md                        # 模板:分級路由 + 決策核心 + 提詞限制條款(需填 TODO)
-├── DECISION-CORE.md                 # 決策核心:授權 / 資訊裁決 / 判準,含正反例與實證標記
-├── TIER3-FRONTIER.md                # 前沿模式:深潛提詞模板(去指令化)+ 競試用法與成本數學
-├── fable-run.ps1                    # headless Tier 2/3 監督式執行器(截斷偵測 + resumeFromRunId 續跑)
 ├── CONTEXT.md                       # 模板:領域語言字典 + 架構地圖(需填)
+├── fable-run.ps1                    # headless Tier 2/3 監督式執行器(截斷偵測 + resumeFromRunId 續跑)
 ├── docs/
+│   ├── DECISION-CORE.md             # 決策核心:授權 / 資訊裁決 / 判準,含正反例與實證標記
+│   ├── TIER3-FRONTIER.md            # 前沿模式:深潛提詞模板(去指令化)+ 競試用法與成本數學
 │   ├── HARNESS.md                   # 完整設計指南(提詞天花板對照表、模型路由)
 │   ├── invariants.md                # 模板:不變量清單(弱模型的護欄)
 │   └── adr/
@@ -81,7 +81,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\init.ps1 -Target C:\path\t
   `--continue` resumeFromRunId 續跑,上限 2 次)+ fable-emu 階段邊界交付檢查點(截斷不丟交付物)。
 - **Tier 3(前沿模式)**:難題不進編排管線(編排是中等任務的槓桿、難題的稅)——深潛用單一
   Opus xhigh session 燒到底(同錢 = Fable 兩倍 tokens);可驗證的難題用 deep-attempts 競試。
-  詳見 TIER3-FRONTIER.md,含誠實邊界(無驗證器的品味題與多日級長跑仍屬 Fable)。
+  詳見 docs/TIER3-FRONTIER.md,含誠實邊界(無驗證器的品味題與多日級長跑仍屬 Fable)。
 
 ## Context 占用(harness 的固定稅,實測估算)
 

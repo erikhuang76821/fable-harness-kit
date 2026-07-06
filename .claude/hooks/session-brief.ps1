@@ -4,7 +4,7 @@
 
 $brief = @"
 <harness-brief>
-你在 fable-harness 專案內工作。核心鐵律(完整版見 CLAUDE.md / DECISION-CORE.md):
+你在 fable-harness 專案內工作。核心鐵律(完整版見 CLAUDE.md / docs/DECISION-CORE.md):
 1. 任務分級路由:預設 Tier 0(提詞層 inline);碰錢/資料/不可逆才升級;fable-emu 僅互動式 session。
 2. 證據先於宣稱:本則訊息內沒跑過驗證指令,不得宣稱通過。
 3. 交付優先:可逆的先做再報,不可逆的才停下問;問錯問題時第一責任是指出來。

@@ -38,7 +38,7 @@ Write-Host "完成:複製 $copied 個檔案,跳過 $skipped 個既有檔案。"
 
 # 自檢:關鍵模板的 TODO 未填完前,驗證與完整性批評缺少專案事實基準,harness 未完整啟用
 $todoTotal = 0
-foreach ($rel in @('CLAUDE.md', 'CONTEXT.md', 'docs\invariants.md', 'DECISION-CORE.md')) {
+foreach ($rel in @('CLAUDE.md', 'CONTEXT.md', 'docs\invariants.md', 'docs\DECISION-CORE.md')) {
   $p = Join-Path $Target $rel
   if (Test-Path $p) {
     $n = ([regex]::Matches((Get-Content $p -Raw), 'TODO')).Count
@@ -50,5 +50,5 @@ if ($todoTotal -gt 0) {
 }
 Write-Host "接下來(見套件 README.md 的檢查清單):"
 Write-Host "  1. 填 CLAUDE.md 的 TODO(build/test/lint 指令、Tier 1 高風險區、規格來源)"
-Write-Host "  2. 填 CONTEXT.md、docs/invariants.md、DECISION-CORE.md 的規格來源"
+Write-Host "  2. 填 CONTEXT.md、docs/invariants.md、docs/DECISION-CORE.md 的規格來源"
 Write-Host "  3. 試跑一個 Tier 0 小任務驗證 hooks 生效"

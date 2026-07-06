@@ -10,7 +10,7 @@ export const meta = {
 
 const task = args && args.task
 const verify = args && args.verify
-if (!task || !verify) throw new Error('用法:Workflow({name:"deep-attempts", args:{task:"...", verify:"..."}})——verify 必填:沒有客觀驗證器就不該用競試,改走深潛(見 TIER3-FRONTIER.md)')
+if (!task || !verify) throw new Error('用法:Workflow({name:"deep-attempts", args:{task:"...", verify:"..."}})——verify 必填:沒有客觀驗證器就不該用競試,改走深潛(見 docs/TIER3-FRONTIER.md)')
 const N = Math.max(2, Math.min((args && args.n) || 2, 3))
 const extra = (args && args.context) ? `\n背景:${args.context}` : ''
 

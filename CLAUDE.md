@@ -17,14 +17,14 @@
 | **Tier 0(預設)** | 絕大多數任務 | 依本檔提詞條款 inline 執行(理解→計畫→執行→自我反駁),不派 workflow |
 | **Tier 1** | 高風險單模組:碰計費 / 資料 / 公開介面。TODO(依專案補充高風險區清單) | Tier 0 完工後,派 1 個 fresh-context 驗證 subagent(sonnet)復核 diff 與全部宣稱;結果落盤 .fable/ 一次 |
 | **Tier 2** | 跨模組 / 不可逆操作 / 使用者點名 | fable-emu workflow(`.claude/workflows/fable-emu.js`)。互動式直接跑;**headless 須經 `fable-run.ps1` 監督**(截斷自動以 resumeFromRunId 續跑),不得裸呼 `claude -p` |
-| **Tier 3(前沿)** | 真難題:新問題無模式可循 / 預期數小時 / 步驟高度耦合切不開 | **深潛**:單一 Opus session、xhigh、去指令化提詞(模板見 TIER3-FRONTIER.md);**可驗證的難題**改用 deep-attempts 競試(N 個平行深潛實測擇優)。時間信封放寬,費用信封仍 ≤ Fable 同任務 |
+| **Tier 3(前沿)** | 真難題:新問題無模式可循 / 預期數小時 / 步驟高度耦合切不開 | **深潛**:單一 Opus session、xhigh、去指令化提詞(模板見 docs/TIER3-FRONTIER.md);**可驗證的難題**改用 deep-attempts 競試(N 個平行深潛實測擇優)。時間信封放寬,費用信封仍 ≤ Fable 同任務 |
 
 - 不確定分級時:預設 Tier 0;碰錢、碰資料、碰不可逆 → 升級。
 - **可逆性判準(交付優先)**:可逆的先做再報,不可逆的才停下問。發現規格衝突時,若存在不改語意的可交付路徑,先交付,衝突隨最終回報上報——絕不讓可交付的工作卡在待決上。
 - 同一問題失敗 2 次 → 停止蠻力重試,改走系統化診斷或委派 codex rescue。
 - Tier 1/2 的 diff,merge 前經至少一個跨模型審查(codex 或 agy);Tier 0 免。
 
-## 決策核心(完整版含正反例與實證標記,見 DECISION-CORE.md)
+## 決策核心(完整版含正反例與實證標記,見 docs/DECISION-CORE.md)
 
 **授權(開解空間)**
 - 使用者陳述的目標是假設,不是規格;提法排除了更好的解就先說。
@@ -97,8 +97,8 @@
 
 ## 必讀資料
 
-- `DECISION-CORE.md` — 決策核心:授權 / 資訊裁決 / 判準,含正反例與實證標記
-- `TIER3-FRONTIER.md` — 前沿模式:深潛提詞模板(去指令化)與競試用法(僅 Tier 3 任務讀)
+- `docs/DECISION-CORE.md` — 決策核心:授權 / 資訊裁決 / 判準,含正反例與實證標記
+- `docs/TIER3-FRONTIER.md` — 前沿模式:深潛提詞模板(去指令化)與競試用法(僅 Tier 3 任務讀)
 - `CONTEXT.md` — 領域語言與架構地圖(動工前先讀)
 - `docs/invariants.md` — 不變量清單(**任何修改不得違反**)
 - `docs/adr/` — 歷史決策,改架構前先查有沒有被否決過的前例
