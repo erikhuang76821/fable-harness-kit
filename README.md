@@ -52,6 +52,8 @@ fable-harness-kit/
 │   ├── DECISION-CORE.md             # decision core: authorization / fact rulings / criteria, with evidence tags
 │   ├── TIER3-FRONTIER.md            # frontier mode: de-prescribed deep-dive template + tournament math
 │   ├── HARNESS.md                   # full design guide (prompt-ceiling table, model routing)
+│   ├── METHOD.md                    # how this kit was built (method + real evidence chains)
+│   ├── PITFALLS.md                  # field-proven pitfalls: PS 5.1 encoding / CLI arg-passing / contract sync
 │   ├── invariants.md                # template: invariants — guardrails for weaker models
 │   └── adr/0001-adopt-fable-harness.md
 ├── benchmark/                       # controlled benchmark: bare Fable 5 vs kit-ified Opus
@@ -211,7 +213,8 @@ instead of dissolving into chat history. Commit `.fable/` (it's team knowledge, 
   on which this kit adds the deterministic layer it lacks (JS workflows + schemas + journaling).
 
 Full discussion: `docs/HARNESS.md`. How this kit was built (method + real evidence chains):
-`docs/METHOD.md`.
+`docs/METHOD.md`. Field-proven transport-layer pitfalls (encoding, arg-passing, contract sync):
+`docs/PITFALLS.md`.
 
 ## License
 
