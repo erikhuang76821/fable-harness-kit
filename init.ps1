@@ -78,7 +78,7 @@ if ($hadOtherHarness) {
   Write-Host "  本 kit 只守底線(危險指令攔截、證據閘門、收尾檢討、.fable/ 留痕);fable-emu 僅在使用者點名時跑,避免雙 harness 搶編排。"
 }
 Write-Host ""
-Write-Host "接下來(見套件 README.md 的檢查清單):"
-Write-Host "  1. 填 CLAUDE.md 的 TODO(build/test/lint 指令、Tier 1 高風險區、規格來源)"
-Write-Host "  2. 填 CONTEXT.md、docs/invariants.md、docs/DECISION-CORE.md 的規格來源"
-Write-Host "  3. 跑 Invoke-Pester -Path tests 確認 hooks 契約全綠,再試跑一個 Tier 0 小任務"
+Write-Host "接下來(推薦路徑):"
+Write-Host "  1. 在目標專案開 Claude Code,輸入 /fable-setup —— 自動填模板、自檢、可選 lint、試跑"
+Write-Host "  2. 完成後跑 powershell -File scripts\doctor.ps1 確認全綠"
+Write-Host "  (手動路徑見 README 的進階摺疊區)"

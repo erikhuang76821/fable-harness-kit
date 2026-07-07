@@ -79,32 +79,34 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\init.ps1 -Target C:\path\t
 # 把 README.md 和 init.ps1 以外的所有內容,照原始目錄結構複製到目標 repo 根目錄
 ```
 
-## 初始化後檢查清單(必做)
+## 初始化(三步,不用讀手冊)
 
-1. **CLAUDE.md**:填掉所有 `TODO(...)` —— build/test/lint 指令、瑣碎任務的專案定義。
-2. **CONTEXT.md**:填領域名詞表和架構地圖。寫「為什麼這樣設計」,不要寫 code 本身能看出的東西。
-3. **docs/invariants.md**:列出這個專案「絕不能被破壞」的規則,一條一行。
-4. **跨模型審查只需 CLI 在 PATH**:`codex` 與 `agy` 任一可用即可——fable-emu 由橋接員 agent
-   現場偵測並直呼 CLI(echo 接地驗收,防半壞橋接編造空審查),**不需安裝任何 plugin/skill**。
-   兩個都沒有也能跑 —— 自動降級為**同家族人格審查團**:規格律師(有規格、無作者辯詞)
-   + 回歸獵人(有 diff 與一句話任務目的、無作者推理),`thorough` 加不變量稽核。
-   裁切原則:裁作者的說服,不裁判斷所需的事實。權重相同的共享盲點無法補回,
-   由仲裁強制讀 code 攔截,並在留痕與最終回報明示降級成色。
-5. **試跑一次**:丟一個小型真實任務,說
-   「用 fable-emu workflow 處理:<任務描述>」,觀察各階段輸出並收緊 prompt/schema。
-   之後凡修改 fable-emu.js:先跑契約測試
-   `node --test tests/workflow-contract.test.mjs tests/persona-sync.test.mjs`(stub 執行器,秒級),
-   merge 前再跑 `scripts/canary.ps1` 端到端金絲雀(~$1,固定 fixture,artifact 留檔)——
-   unit 保契約、金絲雀保現實(haiku 幻覺這類真實失效只有實跑抓得到),把結果貼進回報。
-6. (可選)自動 lint/typecheck:在**現有 PostToolUse 陣列追加** handler
-   (⚠️ 不要整段替換 —— 會覆蓋內建的 rule-guard 留痕 hook):
-
-```json
-"PostToolUse": [
-  { "matcher": "Edit|MultiEdit|Write", "hooks": [{ "type": "command", "command": "powershell ... rule-guard.ps1" }] },
-  { "matcher": "Edit|MultiEdit|Write", "hooks": [{ "type": "command", "command": "TODO: 你的 lint/typecheck 指令" }] }
-]
 ```
+1. powershell -File init.ps1 -Target <你的專案>       # 鋪檔案(只增不覆蓋)
+2. 在該專案開 Claude Code,輸入:/fable-setup          # Claude 引導完成剩下所有事
+3. powershell -File scripts\doctor.ps1                 # 全綠 = 完成
+```
+
+`/fable-setup` 會:自動偵測 build/test/lint 指令填進 CLAUDE.md、掃 repo 起草 CONTEXT 與
+invariants(只有「設計意圖/地雷」這類偵測不到的才問你,最多三問)、想要自動 lint 就由它
+安全地改 settings.json(你不用碰 JSON)、最後帶你試跑一個小任務。
+
+<details>
+<summary><b>手動路徑與細節(進階,點開)</b></summary>
+
+1. **CLAUDE.md**:填掉所有 `TODO(...)`——build/test/lint 指令、Tier 1 高風險區、規格來源。
+2. **CONTEXT.md**:領域名詞表 + 架構地圖。寫「為什麼」,不寫 code 本身能看出的東西。
+3. **docs/invariants.md**:絕不能破壞的規則,一條一行、可判定。
+4. **跨模型審查**:`codex` 或 `agy` 任一在 PATH 即可(橋接員現場偵測直呼,echo 接地驗收,
+   不需任何 plugin);兩者皆缺自動降級同家族人格審查團(裁作者的說服、不裁事實),
+   降級成色會在留痕與最終回報明示。
+5. **改 fable-emu.js 的紀律**:先跑契約測試
+   `node --test tests/workflow-contract.test.mjs tests/persona-sync.test.mjs`(秒級),
+   merge 前跑 `scripts/canary.ps1` 端到端金絲雀(~$1)——unit 保契約、金絲雀保現實。
+6. **自動 lint/typecheck(選配)**:在既有 PostToolUse 陣列**追加** handler,
+   勿整段替換(會蓋掉 rule-guard 留痕 hook);格式參考 `.claude/settings.json`。
+
+</details>
 
 ## 成本信封(消融實驗定案;原始數據在開發庫 ab-test-v2,未隨 kit 搬移)
 

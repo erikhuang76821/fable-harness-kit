@@ -79,26 +79,36 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\init.ps1 -Target C:\path\t
 # Option 2: manual — copy everything except README* / init.ps1 / LICENSE / benchmark into the repo root
 ```
 
-## Post-install checklist (mandatory)
+## Setup (three steps, no manual required)
 
-1. **CLAUDE.md**: fill every `TODO(...)` — build/test/lint commands, the project's definition of trivial.
-2. **CONTEXT.md**: domain glossary and architecture map. Write the *why*, not what the code already shows.
-3. **docs/invariants.md**: list the rules this project must never break, one per line.
-4. **Cross-model review only needs a CLI on PATH**: either `codex` or `agy` — fable-emu's bridge
-   agent detects and calls the CLI directly (echo-grounding acceptance guards against a half-broken
-   bridge fabricating empty reviews); **no plugin/skill install required**. With neither present it
-   degrades to a same-family persona panel (spec lawyer: spec but no author rationale; regression
-   hunter: diff plus one-line intent but no author reasoning; `thorough` adds an invariant auditor).
-   Slicing principle: cut the persuasion, not the facts. Shared same-weights blind spots cannot be
-   bought back — arbitration must read the code, and the degradation is disclosed in logs and the
-   final report.
-5. **Trial run**: hand it a small real task — "handle with the fable-emu workflow: <task>" — and
-   watch each phase. Afterwards, any change to fable-emu.js: run the contract tests first
+```
+1. powershell -File init.ps1 -Target <your repo>      # lay down files (add-only, never overwrites)
+2. Open Claude Code in that repo and type: /fable-setup   # Claude guides the rest
+3. powershell -File scripts\doctor.ps1                # all green = done
+```
+
+`/fable-setup` auto-detects your build/test/lint commands and fills CLAUDE.md, scans the repo to
+draft CONTEXT and invariants (it only asks about things it can't detect — design intent and known
+landmines, three questions max), safely edits settings.json for you if you want auto-lint (you
+never touch JSON), then walks you through a trial task.
+
+<details>
+<summary><b>Manual path & details (advanced)</b></summary>
+
+1. **CLAUDE.md**: fill every `TODO(...)` — build/test/lint commands, Tier-1 high-risk areas, spec source.
+2. **CONTEXT.md**: domain glossary + architecture map. Write the *why*, not what code already shows.
+3. **docs/invariants.md**: rules that must never break — one per line, decidable.
+4. **Cross-model review**: either `codex` or `agy` on PATH is enough (the bridge agent detects and
+   calls the CLI directly with echo-grounding acceptance; no plugins needed). With neither, it
+   degrades to a same-family persona panel — cut the author's persuasion, never the facts — and
+   the degradation is disclosed in the audit trail and final report.
+5. **Discipline for changing fable-emu.js**: run the contract tests first
    (`node --test tests/workflow-contract.test.mjs tests/persona-sync.test.mjs`, seconds), then
-   `scripts/canary.ps1` before merging (~$1, fixed fixture, artifacts kept). Unit tests hold the
-   contracts; the canary holds reality — failures like a scribe model hallucinating only show up live.
-6. (Optional) auto lint/typecheck: **append** a handler to the existing PostToolUse array
-   (⚠️ don't replace the array — you'd wipe the built-in rule-guard audit hook).
+   `scripts/canary.ps1` before merging (~$1). Unit tests hold contracts; the canary holds reality.
+6. **Auto lint/typecheck (optional)**: **append** a handler to the existing PostToolUse array —
+   never replace it (you'd wipe the built-in rule-guard audit hook); see `.claude/settings.json`.
+
+</details>
 
 ## Cost envelope (settled by ablation; raw data lives in the dev repo, not shipped)
 
