@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-<!-- fable-harness-kit 模板:填掉所有 TODO 後生效。設計原理見 docs/HARNESS.md -->
+<!-- fable-harness-kit 模板:填掉所有待填標記後生效。設計原理見 docs/HARNESS.md -->
 
 ## 專案指令
 
