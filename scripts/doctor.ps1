@@ -34,7 +34,7 @@ Check $settingsOk '六支 hooks 已註冊' 'settings.json 缺 handler —— 若
 
 $todoTotal = 0
 foreach ($rel in @('CLAUDE.md', 'CONTEXT.md', 'docs\invariants.md', 'docs\DECISION-CORE.md')) {
-  if (Test-Path $rel) { $todoTotal += ([regex]::Matches((Get-Content $rel -Raw), 'TODO')).Count }
+  if (Test-Path $rel) { $todoTotal += ([regex]::Matches((Get-Content $rel -Raw), 'TODO\(')).Count }
 }
 Check ($todoTotal -eq 0) "模板 TODO 已填完(剩 $todoTotal 處)" '在 Claude Code 輸入 /fable-setup 可自動偵測填寫'
 
@@ -53,3 +53,4 @@ if ($warn -eq 0) {
   Write-Host "最快修復路徑:在 Claude Code 輸入 /fable-setup,讓它逐項處理上面的 [x]。"
 }
 exit $(if ($warn -eq 0) { 0 } else { 1 })
+

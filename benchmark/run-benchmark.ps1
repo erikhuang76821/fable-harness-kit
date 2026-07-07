@@ -6,8 +6,11 @@
 
 param(
   [string[]]$Tasks = @('T1', 'T2', 'T3', 'T4'),
+  # 臂:fable(裸 Fable 5)/ kit(kit 化 Opus)/ opus(裸 Opus,消融對照——測 kit 增量的 kill-switch)
   [string[]]$Arms = @('fable', 'kit'),
+  [int]$Runs = 1,
   [string]$FableModel = 'claude-fable-5',
+  [string]$OpusModel = 'claude-opus-4-8',
   [string]$OutRoot = (Join-Path $env:TEMP ("fable-bench-" + (Get-Date -Format 'yyyyMMdd-HHmmss')))
 )
 
@@ -48,15 +51,16 @@ foreach ($t in $Tasks) {
   $task = (Get-Content (Join-Path $fixture 'task.txt') -Raw -Encoding utf8).Trim()
 
   foreach ($arm in $Arms) {
-    $wd = Join-Path $OutRoot "$t-$arm"
+    for ($run = 1; $run -le $Runs; $run++) {
+    $wd = Join-Path $OutRoot "$t-$arm-r$run"
     Copy-Item $fixture $wd -Recurse
     Push-Location $wd
     try {
       git init -q; git config user.name 'bench'; git config user.email 'bench@local'
       git add -A; git commit -q -m "baseline $t"
-      if ($LASTEXITCODE -ne 0) { Write-Error "baseline commit 失敗:$t-$arm"; continue }
+      if ($LASTEXITCODE -ne 0) { Write-Error "baseline commit 失敗:$t-$arm-r$run"; continue }
 
-      Write-Host "===== [$t/$arm] 開跑 ====="
+      Write-Host "===== [$t/$arm/r$run] 開跑 ====="
       $sw = [System.Diagnostics.Stopwatch]::StartNew()
       if ($arm -eq 'kit') {
         & (Join-Path $kitRoot 'init.ps1') -Target $wd | Out-Null
@@ -64,8 +68,9 @@ foreach ($t in $Tasks) {
         & (Join-Path $kitRoot 'fable-run.ps1') -Task $task -Target $wd | Out-Null
         $logs = @(Get-ChildItem "$wd\.fable\run-logs\*.jsonl" -ErrorAction SilentlyContinue | ForEach-Object FullName)
       } else {
+        $model = if ($arm -eq 'opus') { $OpusModel } else { $FableModel }
         $log = Join-Path $wd 'bench-fable.jsonl'
-        claude -p $task --model $FableModel --permission-mode acceptEdits --allowedTools $AT --output-format stream-json --verbose *> $log
+        claude -p $task --model $model --permission-mode acceptEdits --allowedTools $AT --output-format stream-json --verbose *> $log
         $logs = @($log)
       }
       $sw.Stop()
@@ -73,15 +78,20 @@ foreach ($t in $Tasks) {
       $acceptOut = & powershell -NoProfile -File (Join-Path $wd 'ACCEPT.ps1') 2>&1
       $pass = ($LASTEXITCODE -eq 0)
       $c = Get-CostFromLogs $logs
+      # scope 遙測:受測 diff 動了幾個檔(排除 kit 檔與驗收產物)——供消融比較範圍紀律
+      git add -A *> $null
+      $scopeFiles = @(git diff --cached HEAD --name-only -- . ':(exclude).claude' ':(exclude)CLAUDE.md' ':(exclude)CONTEXT.md' ':(exclude)docs' ':(exclude)tests' ':(exclude)scripts' ':(exclude)benchmark' ':(exclude)fable-run.ps1' ':(exclude).fable' ':(exclude).gitignore' ':(exclude)bench-fable.jsonl' ':(exclude)__pycache__' ':(exclude)*.pyc' 2>$null)
 
       $rec = @{
-        task = $t; arm = $arm; pass = $pass; duration_s = [math]::Round($sw.Elapsed.TotalSeconds, 1)
+        task = $t; arm = $arm; run = $run; pass = $pass; duration_s = [math]::Round($sw.Elapsed.TotalSeconds, 1)
         cost_usd = $c.cost; in_tokens = $c.in; out_tokens = $c.out
+        files_changed = $scopeFiles.Count
         workdir = $wd; stamp = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
       } | ConvertTo-Json -Compress
       Add-Content -Path $resultsFile -Value $rec -Encoding utf8
-      Write-Host "[$t/$arm] pass=$pass 時間=$([math]::Round($sw.Elapsed.TotalSeconds))s 成本=$($c.cost) → $resultsFile"
+      Write-Host "[$t/$arm/r$run] pass=$pass 時間=$([math]::Round($sw.Elapsed.TotalSeconds))s 成本=$($c.cost) 檔數=$($scopeFiles.Count) → $resultsFile"
     } finally { Pop-Location }
+    }
   }
 }
 

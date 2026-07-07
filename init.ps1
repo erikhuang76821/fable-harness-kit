@@ -55,7 +55,7 @@ $todoTotal = 0
 foreach ($rel in @('CLAUDE.md', 'CONTEXT.md', 'docs\invariants.md', 'docs\DECISION-CORE.md')) {
   $p = Join-Path $Target $rel
   if (Test-Path $p) {
-    $n = ([regex]::Matches((Get-Content $p -Raw), 'TODO')).Count
+    $n = ([regex]::Matches((Get-Content $p -Raw), 'TODO\(')).Count
     if ($n -gt 0) { Write-Host "WARN: $rel 尚有 $n 處 TODO 未填"; $todoTotal += $n }
   }
 }
@@ -82,3 +82,4 @@ Write-Host "接下來(推薦路徑):"
 Write-Host "  1. 在目標專案開 Claude Code,輸入 /fable-setup —— 自動填模板、自檢、可選 lint、試跑"
 Write-Host "  2. 完成後跑 powershell -File scripts\doctor.ps1 確認全綠"
 Write-Host "  (手動路徑見 README 的進階摺疊區)"
+

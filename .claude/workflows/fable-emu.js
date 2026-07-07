@@ -520,6 +520,31 @@ await scribe(
 
 // ---------- Phase 3:跨模型對抗審查(不同家族的盲點不重疊) ----------
 phase('CrossReview')
+
+// 範圍稽核(機械層,先於審查):動了計畫未宣告的檔案 → major finding 交仲裁。
+// benchmark T4 實證:順手改 docstring 這類範圍蠕變,提詞條款(勸導)管不住——下沉為機制;
+// 稽核只比對不評好壞,「有正當理由的超範圍」由仲裁者讀 code 裁決,不誤殺
+const SCOPE_AUDIT = {
+  type: 'object',
+  required: ['echo', 'out_of_scope'],
+  properties: {
+    echo: { type: 'string', description: '一句話複述你稽核的宣告清單範圍' },
+    out_of_scope: { type: 'array', items: { type: 'string' }, description: '本次變更中不在宣告清單內的檔案(排除 .fable/.claude/暫存產物);無則空陣列' },
+  },
+}
+const declaredFiles = [...new Set(plan.steps.flatMap(s => s.files || []).concat(u.files_in_scope || []))]
+let scopeFindings = []
+try {
+  const sa = await agent(
+    `範圍稽核(機械比對,不評好壞):執行 git status --porcelain 與 git diff --name-only 取得本次全部變更檔案,` +
+    `對照宣告清單:${JSON.stringify(declaredFiles)}。不在清單、且不屬 .fable/.claude/暫存產物的檔案,列入 out_of_scope。`,
+    { model: 'haiku', effort: 'low', phase: 'CrossReview', schema: SCOPE_AUDIT, label: 'scope-audit' })
+  if (sa && Array.isArray(sa.out_of_scope) && sa.out_of_scope.length) {
+    scopeFindings = sa.out_of_scope.map(f => ({ file: f, summary: `範圍稽核:變更了計畫未宣告的檔案 ${f}——有正當理由請仲裁確認並留痕,否則屬範圍蠕變應回退`, severity: 'major' }))
+    log(`範圍稽核:${sa.out_of_scope.length} 個檔案超出宣告範圍,交仲裁`)
+  }
+} catch (e) { log(`範圍稽核失敗(${e.message}),略過——機械層缺席時由審查者的範圍條款兜底`) }
+
 const reviewPrompt =
   `審查目前工作區的所有未提交變更。你的立場是反方:預設這份修改有錯,盡力反駁。\n` +
   `任務目標:${task}\n完成定義:${u.definition_of_done.join(' / ')}\n` +
@@ -654,8 +679,8 @@ reviews.forEach((r, i) => {
   }
 })
 
-// 聚合與去重是純 JS —— 模型無權決定「哪些發現可以不管」
-const rawFindings = reviews.flatMap(r => r.findings).filter(f => f.severity !== 'minor')
+// 聚合與去重是純 JS —— 模型無權決定「哪些發現可以不管」;範圍稽核的機械發現一併入漏斗
+const rawFindings = reviews.flatMap(r => r.findings).concat(scopeFindings).filter(f => f.severity !== 'minor')
 const seen = new Set()
 const findings = rawFindings.filter(f => {
   const key = `${f.file || ''}::${f.summary}`

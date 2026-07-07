@@ -46,6 +46,7 @@ function makeStubs(overrides = {}) {
     reviewAgy: () => ({ available: true, echo: '複述:審查本次工作區變更的回歸風險面', approved: true, findings: [] }),
     panel: () => ({ echo: '複述:以人格審查團身分審查本次工作區變更', approved: true, findings: [] }),
     arbitrate: () => ({ is_real: false, reason: '查證後非真問題' }),
+    scopeAudit: () => ({ echo: '複述:對照宣告清單稽核變更檔案', out_of_scope: [] }),
     fix: () => ({ status: 'done', summary: 'fixed', verification_output: 'PASS', deviation: '', plan_invalidated: false }),
     refix: () => ({ refuted: false, reason: 'ok' }),
     completeness: () => ({ gaps: [] }),
@@ -66,6 +67,7 @@ function makeStubs(overrides = {}) {
     if (label === 'maverick') return o.maverick(prompt, opts)
     if (label.startsWith('step')) return o.step(prompt, opts, label)
     if (label.startsWith('verify')) return o.verify(prompt, opts, label)
+    if (label === 'scope-audit') return o.scopeAudit(prompt, opts)
     if (label.startsWith('review:codex')) return o.reviewCodex(prompt, opts)
     if (label.startsWith('review:agy')) return o.reviewAgy(prompt, opts)
     if (label.startsWith('review:')) return o.panel(prompt, opts, label)
@@ -203,6 +205,22 @@ test('驗證者持續駁回:耗盡修復次數後 blocked,不得硬掰成完成'
   })
   assert.equal(result.status, 'blocked')
   assert.equal(result.at_step, 1)
+})
+
+test('範圍稽核:超出宣告的檔案成為 major finding 進仲裁(T4 範圍蠕變回歸鎖)', async () => {
+  const { result, record } = await run(TASK, {
+    scopeAudit: () => ({ echo: '複述:對照宣告清單稽核變更檔案', out_of_scope: ['rogue.py'] }),
+  })
+  assert.equal(result.status, 'done', '仲裁判非真問題後仍應完成')
+  assert.ok(record.labels.some(l => l.startsWith('arbitrate:') && l.includes('rogue')), '超範圍檔案必須進仲裁')
+})
+
+test('範圍稽核 agent 失敗:略過不滅團,留 log', async () => {
+  const { result, record } = await run(TASK, {
+    scopeAudit: () => { throw new Error('稽核員陣亡') },
+  })
+  assert.equal(result.status, 'done')
+  assert.ok(record.logs.some(l => l.includes('範圍稽核失敗')))
 })
 
 // ---------- 狀態契約對帳 ----------
