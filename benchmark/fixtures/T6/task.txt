@@ -1,0 +1,1 @@
+依 spec.md 實作 price.py 的 quote(),使 python -m pytest -q 全綠。spec.md 是行為唯一權威——隨附測試只覆蓋部分案例,最終驗收包含未隨附的邊界測試(疊加方式、進位規則、門檻判定都會被驗),請逐句精讀 spec。不動測試檔與 spec.md。

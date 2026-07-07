@@ -54,6 +54,9 @@ foreach ($t in $Tasks) {
     for ($run = 1; $run -le $Runs; $run++) {
     $wd = Join-Path $OutRoot "$t-$arm-r$run"
     Copy-Item $fixture $wd -Recurse
+    # 密封驗收層(v2):sealed/ 絕不進受測工作區——執行與 scope 統計完成後才注入再驗收
+    $sealedSrc = Join-Path $fixture 'sealed'
+    if (Test-Path "$wd\sealed") { Remove-Item "$wd\sealed" -Recurse -Force }
     Push-Location $wd
     try {
       git init -q; git config user.name 'bench'; git config user.email 'bench@local'
@@ -75,12 +78,14 @@ foreach ($t in $Tasks) {
       }
       $sw.Stop()
 
+      # scope 遙測先於密封注入(否則 sealed 檔會污染變更檔數)
+      git add -A *> $null
+      $scopeFiles = @(git diff --cached HEAD --name-only -- . ':(exclude).claude' ':(exclude)CLAUDE.md' ':(exclude)CONTEXT.md' ':(exclude)docs' ':(exclude)tests' ':(exclude)scripts' ':(exclude)benchmark' ':(exclude)fable-run.ps1' ':(exclude).fable' ':(exclude).gitignore' ':(exclude)bench-fable.jsonl' ':(exclude)__pycache__' ':(exclude)*.pyc' 2>$null)
+      # 注入密封測試後才驗收
+      if (Test-Path $sealedSrc) { Copy-Item "$sealedSrc\*" $wd -Force }
       $acceptOut = & powershell -NoProfile -File (Join-Path $wd 'ACCEPT.ps1') 2>&1
       $pass = ($LASTEXITCODE -eq 0)
       $c = Get-CostFromLogs $logs
-      # scope 遙測:受測 diff 動了幾個檔(排除 kit 檔與驗收產物)——供消融比較範圍紀律
-      git add -A *> $null
-      $scopeFiles = @(git diff --cached HEAD --name-only -- . ':(exclude).claude' ':(exclude)CLAUDE.md' ':(exclude)CONTEXT.md' ':(exclude)docs' ':(exclude)tests' ':(exclude)scripts' ':(exclude)benchmark' ':(exclude)fable-run.ps1' ':(exclude).fable' ':(exclude).gitignore' ':(exclude)bench-fable.jsonl' ':(exclude)__pycache__' ':(exclude)*.pyc' 2>$null)
 
       $rec = @{
         task = $t; arm = $arm; run = $run; pass = $pass; duration_s = [math]::Round($sw.Elapsed.TotalSeconds, 1)
