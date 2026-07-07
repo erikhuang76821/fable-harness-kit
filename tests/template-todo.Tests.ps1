@@ -1,4 +1,4 @@
-# 模板 TODO 標記的契約測試(Pester 3.4)
+﻿# 模板 TODO 標記的契約測試(Pester 3.4)
 # 契約:init.ps1 與 scripts/doctor.ps1 以 'TODO\(' 偵測模板未填;
 # 因此四個被掃描的模板中,任何 TODO 字樣都必須是正典的 TODO( 形式——
 # 不論寫成「TODO 範例:」「(TODO:」、裸 TODO、todo(、全形括號,都會被生產 regex 漏掉。

@@ -3,6 +3,7 @@
 # 用法:powershell -File scripts\upstream-suggestions.ps1 [-Repo erikhuang76821/fable-harness-kit] [-Apply]
 #   預設 dry-run(只列出將回流的條目);加 -Apply 才真的開 issue 並在原檔標記 [upstreamed]
 # 判準:只回流 [accepted] 且未標 [upstreamed] 的條目;專案特定的建議請人工改標 [local] 排除
+#   已直接修入 kit 的條目請改標 [accepted→已入法 日期]——不符合本腳本的 [accepted] regex,自動排除,不會重複開 issue
 
 param(
   [string]$Repo = 'erikhuang76821/fable-harness-kit',
@@ -16,9 +17,9 @@ if (-not (Test-Path $sug)) { Write-Host "本專案無 $sug,無可回流"; exit 0
 $ghOk = $false
 try { gh auth status *> $null; $ghOk = ($LASTEXITCODE -eq 0) } catch {}
 
-$lines = Get-Content $sug -Encoding utf8
+$lines = @(Get-Content $sug -Encoding utf8)   # @():單行檔案會退化成字串,索引會變成取字元
 # 條目可能多行(縮排續行為證據/脈絡):從 - [accepted] 起收,到下一個 - [ 開頭或標題為止
-$targets = @()   # 每項 = @{ head = 首行; block = 完整多行文字 }
+$targets = @()   # 每項 = @{ head = 首行; block = 完整多行文字; idx = 首行行號 }
 for ($i = 0; $i -lt $lines.Count; $i++) {
   $l = $lines[$i]
   if ($l -match '^\s*-\s*\[accepted\]' -and $l -notmatch '\[upstreamed\]' -and $l -notmatch '\[local\]') {
@@ -27,7 +28,7 @@ for ($i = 0; $i -lt $lines.Count; $i++) {
       if ($lines[$j] -match '^\s*-\s*\[' -or $lines[$j] -match '^#' -or $lines[$j] -match '^>') { break }
       $block += $lines[$j]
     }
-    $targets += @{ head = $l; block = ($block -join "`n").TrimEnd() }
+    $targets += @{ head = $l; block = ($block -join "`n").TrimEnd(); idx = $i }
   }
 }
 
@@ -50,7 +51,8 @@ foreach ($t in $targets) {
   gh issue create --repo $Repo --title "[fleet] $title" --body "來源專案:$projName(艦隊回流,scripts/upstream-suggestions.ps1)`n`n$($t.block)" | Out-Null
   if ($LASTEXITCODE -eq 0) {
     Write-Host "已回流:$title"
-    $lines = $lines | ForEach-Object { if ($_ -eq $t.head) { $_ -replace '\[accepted\]', '[accepted][upstreamed]' } else { $_ } }
+    # 以行號標記,不以內容比對:首行相同的兩條建議,內容比對會一次標掉兩條(其一失敗時就無法重試)
+    $lines[$t.idx] = $lines[$t.idx] -replace '\[accepted\]', '[accepted][upstreamed]'
   } else {
     Write-Host "回流失敗(gh exit $LASTEXITCODE):$title —— 原檔不標記,可重試"
   }
