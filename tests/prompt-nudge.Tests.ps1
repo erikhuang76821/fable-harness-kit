@@ -28,4 +28,20 @@ Describe 'prompt-nudge' {
     $r.ExitCode | Should Be 0
     $r.StdOut.Trim() | Should Be ''
   }
+
+  It '編碼契約:CP950 主控台下輸出位元組仍為 UTF-8(2026-07-07 dogfood 亂碼回歸鎖)' {
+    # 測試盲區的教訓:一般 Invoke-Hook 繼承本 harness 的主控台碼頁,測不出 Claude Code
+    # spawn 環境(預設碼頁)下的亂碼——此案例強制 CP950 再收原始位元組驗證。
+    # chcp 作用於「共享主控台」:必須保存/還原,不得留下全域副作用
+    $orig = [int]((cmd /c chcp) -replace '\D', '')
+    try {
+      $hook = Join-Path (Split-Path $PSScriptRoot -Parent) '.claude\hooks\prompt-nudge.ps1'
+      $tmp = Join-Path $TestDrive 'nudge-bytes.bin'
+      cmd /d /c "chcp 950 >nul & powershell -NoProfile -ExecutionPolicy Bypass -File `"$hook`" > `"$tmp`""
+      $text = [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($tmp))
+      $text | Should Match '(證據先於宣稱|交付優先|動工前|慢下來訊號)'
+    } finally {
+      cmd /c "chcp $orig >nul"
+    }
+  }
 }

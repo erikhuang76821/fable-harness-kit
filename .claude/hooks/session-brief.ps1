@@ -2,6 +2,7 @@
 # 靈感來自 obra/superpowers 的 session-start 注入;內容對應本套件的 CLAUDE.md 與 .fable/
 # 價值:LESSONS 變成連日常對話都躲不掉的 context;compact 後核心規則自動重新注入
 
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}  # 中文輸出必經:Claude Code 以 UTF-8 讀 hook 輸出,PS 5.1 預設主控台碼頁(CP950)會產生亂碼(2026-07-07 dogfood 實證)
 $brief = @"
 <harness-brief>
 你在 fable-harness 專案內工作。核心鐵律(完整版見 CLAUDE.md / docs/DECISION-CORE.md):

@@ -6,6 +6,7 @@
 #     stop_hook_active 最多擋一次;單次收尾最壞被擋兩次(一次證據、一次檢討),
 #     不會無限迴圈——實際擋幾次取決於 Claude Code 對同一 Stop 事件多 hook 的處理。
 
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}  # 中文輸出必經:Claude Code 以 UTF-8 讀 hook 輸出,PS 5.1 預設主控台碼頁(CP950)會產生亂碼(2026-07-07 dogfood 實證)
 $raw = [Console]::In.ReadToEnd()
 if (-not $raw) { exit 0 }
 try { $payload = $raw | ConvertFrom-Json } catch { exit 0 }

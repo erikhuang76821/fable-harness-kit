@@ -2,6 +2,7 @@
 # 觸發條件:本 session 有 Edit/Write 修改,且既沒寫過教訓也沒聲明「檢討:無」→ block 一次,要求收尾檢討
 # 防護:stop_hook_active 時放行(防無限迴圈);非 kit 專案放行;無修改放行
 
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}  # 中文輸出必經:Claude Code 以 UTF-8 讀 hook 輸出,PS 5.1 預設主控台碼頁(CP950)會產生亂碼(2026-07-07 dogfood 實證)
 $raw = [Console]::In.ReadToEnd()
 if (-not $raw) { exit 0 }
 try { $payload = $raw | ConvertFrom-Json } catch { exit 0 }
