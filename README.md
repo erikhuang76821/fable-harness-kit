@@ -22,6 +22,11 @@ on 4 small-to-mid verifiable tasks: pass rate tied 4/4, quality delta −0.13 (t
 cost 59%. Evidence level: **calibration-grade (n=4)** — does not extrapolate to large,
 long-horizon tasks (see the honest-reading section of the report). Raw evidence:
 [`benchmark/evidence/`](benchmark/evidence/).
+**Ablation follow-up (same day, bare-Opus arm, 12/12)**: at this difficulty band bare Opus
+saturates and is the cheapest — the kit's increment on easy tasks is **not pass rate** (its
+~$0.12/run tax buys guardrails and an audit trail), and any performance increment must be proven
+or falsified on a harder task band (v2). The honest positioning: the kit is a **discipline,
+protection and audit layer**, not an accelerator.
 
 > **Who it's for**: teams whose primary models are Opus/Sonnet, who want Fable-class
 > self-doubt and verification discipline, and who care about cost.
