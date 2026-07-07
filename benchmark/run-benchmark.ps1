@@ -14,6 +14,10 @@ param(
   [string]$OutRoot = (Join-Path $env:TEMP ("fable-bench-" + (Get-Date -Format 'yyyyMMdd-HHmmss')))
 )
 
+# powershell -File 傳參不解析 PS 陣列:-Tasks T5,T6,T7 會進來成單一字串——統一拆逗號
+$Tasks = @($Tasks | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
+$Arms = @($Arms | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
+
 $benchDir = $PSScriptRoot
 $kitRoot = Split-Path $benchDir -Parent
 $resultsDir = Join-Path $benchDir 'results'
