@@ -1,192 +1,203 @@
 # fable-harness-kit
 
-**給 Claude Code 使用者的多模型開發 Harness 模板**:不換更貴的模型,用流程強制力買回思考維度。
-把「哪裡該懷疑、懷疑幾次、誰仲裁、何時收斂」從模型天性下沉為 hooks 與 workflow 腳本,
-讓 **Opus 4.8(規劃/仲裁)+ Sonnet(執行)+ Codex/Agy(跨模型審查)** 逼近 Fable 級輸出——
-成本信封:≤ 裸 Fable 5 做同一件事。
+**English** | [繁體中文](README.zh-TW.md)
 
-核心等式:**Opus 4.8 + fable-emu workflow(編排判斷的預編譯)≈ Fable 5**
+**A multi-model development harness template for Claude Code**: instead of paying for a more
+expensive model, buy back its thinking discipline with process enforcement. The judgment calls —
+*where to doubt, how many times, who arbitrates, when to converge* — are sunk from model
+temperament into hooks and workflow scripts, so that **Opus 4.8 (planning/arbitration) +
+Sonnet (execution) + Codex/Agy (cross-model review)** approaches Fable-class output.
+Cost envelope: ≤ what bare Fable 5 costs for the same task.
 
-**證據等級聲明**:上述等式與成本信封來自作者的內部消融實驗(4 組 × 3 run、雙盲評分,2026-07),
-原始數據未隨 kit 公開——採用者應將其視為**工作假設**,在自己的任務上驗證,而非已確立的 benchmark。
-本套件自己的決策核心也是這樣要求的:未驗證的宣稱是待驗假設,不是真理。
-**2026-07-07 更新**:首次對照測量(`benchmark/REPORT.md`,預註冊協議、非 Claude 家族雙裁判盲評)
-在 4 個小-中型可驗證任務上支持等式:通過率 4/4 平手、品質差 −0.13(容忍 −0.5)、成本 59%。
-證據等級:**校準級(n=4)**,不外推到大型長程任務(見報告的誠實解讀節)。
+Core equation: **Opus 4.8 + fable-emu workflow (pre-compiled orchestration judgment) ≈ Fable 5**
 
-> **給誰用**:主力模型是 Opus/Sonnet、想要 Fable 級的自我懷疑與驗證紀律、且在意成本的團隊。
-> **前置需求**:Claude Code(Windows;hooks 與腳本為 PowerShell,mac/linux 需自行 port 或改用 pwsh)。
-> 選配:codex plugin 與 agy CLI(跨模型審查;缺席時自動降級為單模型審查並留痕)。
-> **非 Claude Code 使用者**:hooks 與 workflow 強制力**不可移植**;可移植的是提詞條款與決策核心
-> (Codex 側放 AGENTS.md、Gemini 側放 GEMINI.md),見 `docs/HARNESS.md` §2.5。
-> **快速開始**:GitHub 上點「Use this template」建新專案,或對既有 repo 跑 `init.ps1`(見下)。
+**Evidence-level statement**: the equation and cost envelope come from the author's internal
+ablation experiments (4 groups × 3 runs, double-blind scoring, 2026-07); raw data is not shipped
+with the kit — adopters should treat them as a **working hypothesis** to verify on their own
+tasks, not an established benchmark. The kit's own decision core demands exactly this: an
+unverified claim is a pending hypothesis, not truth.
+**2026-07-07 update**: the first controlled measurement ([`benchmark/REPORT.md`](benchmark/REPORT.md),
+pre-registered protocol, blind dual judges from non-Claude model families) supports the equation
+on 4 small-to-mid verifiable tasks: pass rate tied 4/4, quality delta −0.13 (tolerance −0.5),
+cost 59%. Evidence level: **calibration-grade (n=4)** — does not extrapolate to large,
+long-horizon tasks (see the honest-reading section of the report). Raw evidence:
+[`benchmark/evidence/`](benchmark/evidence/).
 
-## 套件內容
+> **Who it's for**: teams whose primary models are Opus/Sonnet, who want Fable-class
+> self-doubt and verification discipline, and who care about cost.
+> **Prerequisites**: Claude Code (Windows; hooks and scripts are PowerShell — mac/linux users
+> should port them or use pwsh). Optional: `codex` and `agy` CLIs for cross-model review;
+> when absent the kit degrades honestly to single-family review with an audit trail.
+> **Not on Claude Code?** The hooks and workflow enforcement layers are **not portable**;
+> what ports is the prompt clauses and the decision core (AGENTS.md for Codex, GEMINI.md for
+> Gemini) — see `docs/HARNESS.md` §2.5.
+> **Quick start**: click "Use this template" on GitHub for a new project, or run `init.ps1`
+> against an existing repo (below).
+
+## What's inside
 
 ```
 fable-harness-kit/
-├── README.md                        # 本檔(不會被複製到目標 repo)
-├── init.ps1                         # 一鍵初始化腳本(不會被複製)
-├── CLAUDE.md                        # 模板:分級路由 + 決策核心 + 提詞限制條款(需填 TODO)
-├── CONTEXT.md                       # 模板:領域語言字典 + 架構地圖(需填)
-├── fable-run.ps1                    # headless Tier 2/3 監督式執行器(截斷偵測 + resumeFromRunId 續跑)
+├── README.md / README.zh-TW.md     # this file (not copied into target repos)
+├── init.ps1                         # one-shot installer (not copied)
+├── CLAUDE.md                        # template: tiered routing + decision core + prompt clauses (fill TODOs)
+├── CONTEXT.md                       # template: domain glossary + architecture map (fill in)
+├── fable-run.ps1                    # supervised headless runner for Tier 2/3 (truncation detect + resume)
 ├── docs/
-│   ├── DECISION-CORE.md             # 決策核心:授權 / 資訊裁決 / 判準,含正反例與實證標記
-│   ├── TIER3-FRONTIER.md            # 前沿模式:深潛提詞模板(去指令化)+ 競試用法與成本數學
-│   ├── HARNESS.md                   # 完整設計指南(提詞天花板對照表、模型路由)
-│   ├── invariants.md                # 模板:不變量清單(弱模型的護欄)
-│   └── adr/
-│       └── 0001-adopt-fable-harness.md  # ADR 格式範例(兼記錄本套件的採用)
-├── benchmark/                       # 對照基準:裸 Fable 5 vs kit 化 Opus(PROTOCOL.md 預註冊;
-│                                    #   run-benchmark.ps1 收驗收/成本/時間,judge.ps1 非 Claude 家族雙裁判盲評)
+│   ├── DECISION-CORE.md             # decision core: authorization / fact rulings / criteria, with evidence tags
+│   ├── TIER3-FRONTIER.md            # frontier mode: de-prescribed deep-dive template + tournament math
+│   ├── HARNESS.md                   # full design guide (prompt-ceiling table, model routing)
+│   ├── invariants.md                # template: invariants — guardrails for weaker models
+│   └── adr/0001-adopt-fable-harness.md
+├── benchmark/                       # controlled benchmark: bare Fable 5 vs kit-ified Opus
+│                                    #   (pre-registered PROTOCOL.md; blind non-Claude dual judges)
 ├── scripts/
-│   ├── canary.ps1                   # 金絲雀:fable-emu 修改後一鍵端到端實跑(固定 fixture + artifact)
-│   ├── schedule-canary.ps1          # 每週排程金絲雀:感測上游模型暗改(靜態測試唯一攔不到的盲區)
-│   └── upstream-suggestions.ps1     # 艦隊回流:各部署專案的 [accepted] 建議回流 kit repo 成 issue
-├── tests/                           # 行為契約:hooks(Pester)+ workflow(node --test,stub 執行器)+ 人格同步
+│   ├── canary.ps1                   # one-click end-to-end canary after fable-emu changes
+│   ├── schedule-canary.ps1          # weekly scheduled canary: senses silent upstream model drift
+│   └── upstream-suggestions.ps1     # fleet feedback: deployed projects' accepted lessons → kit issues
+├── tests/                           # behavior contracts: hooks (Pester) + workflow (node --test stub runner)
 └── .claude/
-    ├── settings.json                # hooks 配置(六支,含兩支 Stop gate:verify 在前、retro 在後)
-    ├── status-contract.json         # workflow 狀態契約單源(fable-run 執行期載入;fable-emu 測試期對帳)
-    ├── agents/
-    │   ├── spec-lawyer.md           # 反方:規格律師(先推導期望行為再對照 diff;不吃作者辯詞)
-    │   ├── regression-hunter.md     # 反方:回歸獵人(只看 diff+一句話目的;義務 grep 呼叫點+跑測試)
-    │   └── invariant-auditor.md     # 反方:不變量稽核(逐條核對 invariants + 範圍紀律)
-    ├── hooks/
-    │   ├── git-guard.ps1            # PreToolUse:攔危險指令
-    │   ├── session-brief.ps1        # SessionStart:鐵律 + LESSONS/DECISIONS + 待審建議計數 + 蒸餾觸發
-    │   ├── prompt-nudge.ps1         # UserPromptSubmit:每回合一行輕推(建 .claude/nudge-off 可關)
-    │   ├── verify-gate.ps1          # Stop①:改了程式檔卻無測試痕跡 → 擋一次,補證據或明說未驗證
-    │   ├── stop-retro-gate.ps1      # Stop②:有修改的 session 收尾前強制檢討一次
-    │   └── rule-guard.ps1           # PostToolUse:規則檔變更自動留痕 DECISIONS.md(血統可追溯)
+    ├── settings.json                # six hooks incl. two Stop gates (verify first, retro second)
+    ├── status-contract.json         # single source of workflow statuses
+    ├── agents/                      # adversarial reviewers: spec-lawyer / regression-hunter / invariant-auditor
+    ├── hooks/                       # git-guard / session-brief / prompt-nudge / verify-gate / stop-retro-gate / rule-guard
     └── workflows/
-        ├── fable-emu.js             # Tier 2:理解→計畫→執行→跨模型審查→完整性
-        └── deep-attempts.js         # Tier 3 競試:N 個平行深潛(worktree 隔離)+ 裁判實測擇優
+        ├── fable-emu.js             # Tier 2: understand → plan → execute → cross-model review → completeness
+        └── deep-attempts.js         # Tier 3 tournament: N parallel deep dives (worktree-isolated) + judged
 ```
 
-反方 agents 可在 Tier 0/1 直接點名派用(如「派 spec-lawyer 審這個 diff」),與 fable-emu 的
-Tier 2 人格團同源同設計(資訊裁切:裁作者的說服,不裁判斷所需的事實)。
+The adversarial agents can be dispatched by name at Tier 0/1 ("send spec-lawyer at this diff");
+they share one design with fable-emu's Tier-2 panel — *information slicing*: cut the author's
+persuasion, never the facts a judgment needs.
 
-## 初始化方式
+## Install
 
 ```powershell
-# 方式一:腳本(只複製目標 repo 中不存在的檔案,絕不覆蓋)
+# Option 1: script (copies only files that don't exist in the target; never overwrites)
 powershell -NoProfile -ExecutionPolicy Bypass -File .\init.ps1 -Target C:\path\to\your\repo
 
-# 方式二:手動
-# 把 README.md 和 init.ps1 以外的所有內容,照原始目錄結構複製到目標 repo 根目錄
+# Option 2: manual — copy everything except README* / init.ps1 / LICENSE / benchmark into the repo root
 ```
 
-## 初始化後檢查清單(必做)
+## Post-install checklist (mandatory)
 
-1. **CLAUDE.md**:填掉所有 `TODO(...)` —— build/test/lint 指令、瑣碎任務的專案定義。
-2. **CONTEXT.md**:填領域名詞表和架構地圖。寫「為什麼這樣設計」,不要寫 code 本身能看出的東西。
-3. **docs/invariants.md**:列出這個專案「絕不能被破壞」的規則,一條一行。
-4. **跨模型審查只需 CLI 在 PATH**:`codex` 與 `agy` 任一可用即可——fable-emu 由橋接員 agent
-   現場偵測並直呼 CLI(echo 接地驗收,防半壞橋接編造空審查),**不需安裝任何 plugin/skill**。
-   兩個都沒有也能跑 —— 自動降級為**同家族人格審查團**:規格律師(有規格、無作者辯詞)
-   + 回歸獵人(有 diff 與一句話任務目的、無作者推理),`thorough` 加不變量稽核。
-   裁切原則:裁作者的說服,不裁判斷所需的事實。權重相同的共享盲點無法補回,
-   由仲裁強制讀 code 攔截,並在留痕與最終回報明示降級成色。
-5. **試跑一次**:丟一個小型真實任務,說
-   「用 fable-emu workflow 處理:<任務描述>」,觀察各階段輸出並收緊 prompt/schema。
-   之後凡修改 fable-emu.js:先跑契約測試
-   `node --test tests/workflow-contract.test.mjs tests/persona-sync.test.mjs`(stub 執行器,秒級),
-   merge 前再跑 `scripts/canary.ps1` 端到端金絲雀(~$1,固定 fixture,artifact 留檔)——
-   unit 保契約、金絲雀保現實(haiku 幻覺這類真實失效只有實跑抓得到),把結果貼進回報。
-6. (可選)自動 lint/typecheck:在**現有 PostToolUse 陣列追加** handler
-   (⚠️ 不要整段替換 —— 會覆蓋內建的 rule-guard 留痕 hook):
+1. **CLAUDE.md**: fill every `TODO(...)` — build/test/lint commands, the project's definition of trivial.
+2. **CONTEXT.md**: domain glossary and architecture map. Write the *why*, not what the code already shows.
+3. **docs/invariants.md**: list the rules this project must never break, one per line.
+4. **Cross-model review only needs a CLI on PATH**: either `codex` or `agy` — fable-emu's bridge
+   agent detects and calls the CLI directly (echo-grounding acceptance guards against a half-broken
+   bridge fabricating empty reviews); **no plugin/skill install required**. With neither present it
+   degrades to a same-family persona panel (spec lawyer: spec but no author rationale; regression
+   hunter: diff plus one-line intent but no author reasoning; `thorough` adds an invariant auditor).
+   Slicing principle: cut the persuasion, not the facts. Shared same-weights blind spots cannot be
+   bought back — arbitration must read the code, and the degradation is disclosed in logs and the
+   final report.
+5. **Trial run**: hand it a small real task — "handle with the fable-emu workflow: <task>" — and
+   watch each phase. Afterwards, any change to fable-emu.js: run the contract tests first
+   (`node --test tests/workflow-contract.test.mjs tests/persona-sync.test.mjs`, seconds), then
+   `scripts/canary.ps1` before merging (~$1, fixed fixture, artifacts kept). Unit tests hold the
+   contracts; the canary holds reality — failures like a scribe model hallucinating only show up live.
+6. (Optional) auto lint/typecheck: **append** a handler to the existing PostToolUse array
+   (⚠️ don't replace the array — you'd wipe the built-in rule-guard audit hook).
 
-```json
-"PostToolUse": [
-  { "matcher": "Edit|MultiEdit|Write", "hooks": [{ "type": "command", "command": "powershell ... rule-guard.ps1" }] },
-  { "matcher": "Edit|MultiEdit|Write", "hooks": [{ "type": "command", "command": "TODO: 你的 lint/typecheck 指令" }] }
-]
-```
+## Cost envelope (settled by ablation; raw data lives in the dev repo, not shipped)
 
-## 成本信封(消融實驗定案;原始數據在開發庫 ab-test-v2,未隨 kit 搬移)
+**Design goal: cost ≤ bare Fable 5 on the same task, same order-of-magnitude time, quality no worse.**
 
-**設計目標:成本 ≤ 裸 Fable 5 同任務、時間同量級、品質不輸。**
-實測依據:提詞層(Tier 0)以 ~$0.5 / 2 分鐘拿到盲評最高分。
+- **Tiered routing** (CLAUDE.md): Tier 0 prompt layer (default) → Tier 1 + fresh-context verifier
+  (high-risk single module) → Tier 2 fable-emu (cross-module / irreversible; interactive sessions only).
+- **fable-emu cost control**: plan arena and insight agent only for `complex`; single reviewer by
+  default (`thorough` for two); haiku verification for low-risk steps; batched journaling; retro
+  only when something is worth retro-ing. Target ~$1.0–1.3 per run.
+- **Ship-first criterion**: for an irreversible disagreement with a reversible default path,
+  ship the reversible part and escalate the dispute with the final report — deliverable work
+  never blocks on a pending decision.
+- **Reference, don't copy**: task understanding is journaled to `.fable/runs/<slug>/ctx.md` and
+  referenced by path; execution steps carry one progress line + last-step detail (the old design
+  re-injected the whole history each step — quadratic context cost).
+- **Cost telemetry**: fable-run sums `total_cost_usd` and tokens from the stream-json result
+  events into `.fable/COST-LOG.md` — the envelope claim audits itself with every run.
+- **Controlled benchmark**: `benchmark/` measures bare Fable 5 vs kit-ified Opus under a
+  pre-registered protocol with blind non-Claude dual judges — the mechanism that upgrades the
+  core equation from working hypothesis to reviewable measurement.
+- **Headless truncation protection**: `fable-run.ps1` (terminal-state detection + bounded
+  resume) plus delivery checkpoints at phase boundaries — truncation no longer loses deliverables.
+- **Tier 3 (frontier)**: hard problems skip the pipeline (orchestration is leverage for medium
+  tasks, a tax on hard ones) — a single Opus xhigh deep-dive (half Fable's unit price = twice the
+  tokens for the same money), or `deep-attempts` tournaments when an objective verifier exists.
+  See docs/TIER3-FRONTIER.md, including the honest boundary: taste problems without verifiers
+  and multi-day autonomy remain Fable terrain.
 
-- **分級路由**(CLAUDE.md):Tier 0 提詞層(預設)→ Tier 1 +fresh-context 驗證者(高風險單模組)→ Tier 2 fable-emu(跨模組/不可逆,僅互動式 session)。
-- **fable-emu 成本控制**:競技場與洞察代理只留 complex;審查預設單評者(`args.thorough` 才雙評);low 風險步驟 haiku 驗證;成功步驟批次落盤;檢討只在有事可檢討時跑。目標成本 ~$1.0-1.3。
-- **交付優先判準**:不可逆分歧若存在可逆預設路徑 → 先交付、爭議隨最終回報上報(`reversible_default`),不再為可逆工作擋單。
-- **引用不複製**:任務理解落盤 `.fable/runs/<slug>/ctx.md` 供各 agent 按需讀取,執行步驟只帶
-  進度一行 + 上一步詳情(舊版每步注入全部歷史,context 成本隨步數平方成長);大輸出寫檔回傳路徑。
-- **成本遙測**:fable-run 每輪加總 stream-json 的 `total_cost_usd` 與 tokens,印出並 append 到
-  `.fable/COST-LOG.md`——信封宣稱由每次 run 自動累積實測分布,自我審計。
-- **對照基準**:`benchmark/` 以預註冊協議(PROTOCOL.md)對照裸 Fable 5 與 kit 化 Opus——
-  核心等式從「工作假設」升級為「可覆核測量」的機制;利益衝突控制:非 Claude 家族雙裁判盲評。
-- **headless 截斷防護**:`fable-run.ps1` 監督式執行器(TASK.md 終態偵測 +
-  `--continue` resumeFromRunId 續跑,上限 2 次)+ fable-emu 階段邊界交付檢查點(截斷不丟交付物)。
-- **Tier 3(前沿模式)**:難題不進編排管線(編排是中等任務的槓桿、難題的稅)——深潛用單一
-  Opus xhigh session 燒到底(同錢 = Fable 兩倍 tokens);可驗證的難題用 deep-attempts 競試。
-  詳見 docs/TIER3-FRONTIER.md,含誠實邊界(無驗證器的品味題與多日級長跑仍屬 Fable)。
+## Context tax (measured estimate)
 
-## Context 占用(harness 的固定稅,實測估算)
-
-| 口徑 | Tokens(約) | 佔 1M 窗口 |
+| Scope | Tokens (approx.) | Of a 1M window |
 |---|---|---|
-| 每 session 自動載入(CLAUDE.md + hook 注入鐵律) | 2,600 | 0.26% |
-| 動工一個任務(+ 必讀:DECISION-CORE / CONTEXT / invariants) | 4,300 | 0.43% |
-| 全套件通讀(僅在被要求讀整個 kit 時發生) | 27,000 | 2.7% |
+| Auto-loaded per session (CLAUDE.md + hook brief) | 2,600 | 0.26% |
+| Starting a task (+ required reading: DECISION-CORE / CONTEXT / invariants) | 4,300 | 0.43% |
+| Reading the whole kit (only when explicitly asked) | 27,000 | 2.7% |
 
-- `.fable/LESSONS.md`、`DECISIONS.md` 的注入尾巴會隨累積成長(封頂約再 +1,500),過長時 SessionStart hook 會提示蒸餾。
-- fable-emu.js(~11k tokens)正常運作**不進主模型 context**:workflow 由 harness 執行,內部 prompt 分段發給各 subagent,各自計費。
-- 估算係數:CJK 字 ≈ 1.1 token、其餘 ≈ 4 字元/token,誤差約 ±30%。
+fable-emu.js (~11k tokens) never enters the main model's context in normal operation — the
+harness executes the workflow and its prompts go to subagents piecemeal. Estimation: CJK ≈ 1.1
+token/char, other ≈ 4 chars/token, ±30%.
 
-## 天花板機制(生成端加碼,驗證漏斗不變)
+## Ceiling mechanisms (spend on generation; the verification funnel never bends)
 
-原則:**天花板加在生成端,地板鎖在驗證端,兩端永不互換。** 所有探索性產出想合流,一律走同一套驗證漏斗,沒有 VIP 通道。
+Principle: **raise the ceiling on the generation side, lock the floor on the verification side,
+never swap the two.** All exploratory output merges through the same verification funnel — no VIP lane.
 
-| 機制 | 做什麼 | 觸發條件 |
+| Mechanism | What it does | Trigger |
 |---|---|---|
-| 複雜度分級 | Understand 判 trivial/standard/complex,決定後續投入多少規劃冗餘 | 每次 |
-| 計畫競技場 | 2 個立場迥異的規劃者平行出案,裁判合成 | **僅 complex** + 預算足 |
-| 洞察代理 | 「更強的工程師會看到什麼這份計畫沒看到的?」fundamental 級發現觸發一次計畫修訂 | **僅 complex** + 預算足 |
-| 重規劃回路 | 執行中發現「計畫前提被現實推翻」→ 帶著既成事實回規劃重排剩餘步驟(限一次) | plan_invalidated |
-| 風險分級驗證 | high 風險步驟雙鏡頭驗證(正確性+回歸)全過才放行;low 用 haiku 單驗證。分級只降生成成本,不降阻斷力 | 每步 |
-| 後設認知安全閥 | 任務根本不適合本流程時顯式上報建議路線,不硬套五階段 | process_mismatch |
-| 異端沙箱 | 隔離 worktree 平行試一條根本不同的路線,報告僅供比較,絕不自動合流 | args.maverick(opt-in) |
-| 賽後檢討 | 產出流程浪費分析與「教訓升格為規則」候選,寫入 .fable/KIT-SUGGESTIONS.md 供人審 | 有事可檢討時(重規劃/審查修復/缺口) |
-| 預算分艙 | 總預算 30% 鎖給驗證與審查;探索(競技場/洞察/異端)花再兇不得侵入 | 有預算時 |
+| Complexity grading | Understand rates trivial/standard/complex → how much planning redundancy to buy | every run |
+| Plan arena | 2 planners with opposed stances in parallel; a judge synthesizes | complex only, budget allowing |
+| Insight agent | "What would a stronger engineer see that this plan misses?" fundamental findings trigger one revision | complex only, budget allowing |
+| Replan loop | Reality falsifies a plan premise → replan the remainder with facts on the ground (once) | plan_invalidated |
+| Risk-graded verification | High-risk steps: dual-lens (correctness + regression), all must pass; low-risk: haiku single. Grading cuts generation cost, never blocking power | every step |
+| Metacognitive safety valve | Task fundamentally doesn't fit the pipeline → explicit escalation with a suggested route | process_mismatch |
+| Maverick sandbox | An isolated worktree tries a radically different route; report-only, never auto-merged | args.maverick (opt-in) |
+| Post-run retro | Process-waste analysis + rule-promotion candidates → .fable/KIT-SUGGESTIONS.md for human review | when there's something to review |
+| Budget bulkheads | 30% of budget reserved for verification/review; exploration cannot invade it | when a budget is set |
 
-## 執行留痕(.fable/,由 workflow 自動產生)
+## Audit trail (.fable/, written by the workflow)
 
-fable-emu 執行時會由 Haiku 紀錄員 agent 動態落盤,防止偏移並累積組織知識:
+- `.fable/runs/<slug>/TASK.md` — live task state: definition of done, step checkboxes, blockers
+- `.fable/DECISIONS.md` — append-only: trade-offs, escalations, review arbitrations (rejected findings included)
+- `.fable/LESSONS.md` — append-only: lessons from refuted attempts and reviewer-caught blind spots
+- `.fable/KIT-SUGGESTIONS.md` — `- [pending] suggestion (evidence: ...; date)`; humans mark
+  [accepted]/[rejected]; only accepted entries become rules. The loop is hook-driven: Stop hook
+  forces writing, SessionStart forces reading, rule-guard keeps the provenance chain.
 
-- `.fable/runs/<任務slug>/TASK.md` — 即時任務狀態:完成定義、步驟 checkbox、卡點
-- `.fable/DECISIONS.md` — append-only:方案取捨、上報紀錄、審查仲裁(含被駁回的發現與理由)
-- `.fable/LESSONS.md` — append-only:被對抗驗證駁回的教訓、執行層漏掉而審查抓到的盲點
-- `.fable/KIT-SUGGESTIONS.md` — 結構化條目 `- [pending] 建議(證據:...;日期)`;人審改為 [accepted]/[rejected],僅 accepted 可入法。閉環由 hooks 驅動:Stop hook 逼「寫」(全 tier 收尾檢討)、SessionStart hook 逼「讀」(待審計數 + 蒸餾觸發)、rule-guard 留「證據鏈」(規則檔變更自動記入 DECISIONS)
+Next task's understand phase **must read** LESSONS and DECISIONS — lessons persist across tasks
+instead of dissolving into chat history. Commit `.fable/` (it's team knowledge, not scratch).
 
-回饋迴路:下一次任務的理解階段**必讀** LESSONS 與 DECISIONS——教訓跨任務生效,而不是散在對話裡。
-`.fable/` 建議進版控(它是團隊知識,不是暫存檔);LESSONS.md 太長時定期蒸餾進 CLAUDE.md 條款或 invariants.md。
+## Known limitations (accepted residual risk)
 
-## 已知限制(有意接受的殘餘風險)
+- **git-guard is best-effort, not a sandbox**: the regex gate stops common dangerous forms
+  (flag-position variants included) — it guards against model slips, not adversaries. The
+  block/allow samples are pinned by `tests/git-guard.Tests.ps1`.
+- **The two Stop gates yield to each other boundedly**: each blocks at most once
+  (`stop_hook_active`); worst case a session close is blocked twice (evidence once, retro once),
+  never an infinite loop.
+- **verify-gate can't see verification inside subagents** (transcripts are separate): if blocked,
+  cite the subagent's evidence (command + result) in your reply and the next close passes.
+- **Hooks use relative paths**: they rely on Claude Code running hooks from the project root.
+- Auto-lint and a codex review gate remain opt-in — append handlers, never replace arrays.
 
-- **git-guard 是 best-effort 防呆,不是沙箱**:regex 閘門擋常見危險寫法(含旗標位置變形),
-  防的是模型失誤,不是蓄意繞過;最後防線是 Claude Code 的 permission mode。擋放樣本由
-  `tests/git-guard.Tests.ps1` 鎖定,改 regex 必須跑綠。
-- **兩支 Stop gate 有界互讓**:verify-gate(證據)排前、stop-retro-gate(檢討)排後;各自因
-  `stop_hook_active` 最多擋一次,單次收尾最壞被擋兩次(證據一次、檢討一次)、不會無限迴圈;
-  實際擋幾次取決於 Claude Code 對同一 Stop 事件多 hook 的處理,此屬 harness 行為、非本 kit 可測。
-- **verify-gate 看不到 subagent 內的驗證**(transcript 分離):在 workflow 內完成驗證的 session
-  被擋時,在回覆中引用該證據(含指令與結果)即可通過下一次收尾。
-- **hook 使用相對路徑**:依賴 Claude Code 以專案根目錄執行 hooks(目前行為如此);
-  若未來版本改變 cwd 行為,需改為絕對路徑。
-- **PostToolUse 與 Stop 已各內建一支 hook**(rule-guard 留痕、stop-retro-gate 收尾檢討);
-  「自動 lint」與「codex review gate」仍為選配 —— 追加時見檢查清單第 6 條,勿覆蓋既有 handler。
+## Design notes
 
-## 設計原理速記
+- Prompts govern quality and style; **everything non-negotiable (verification counts, votes,
+  budgets, dangerous commands) sinks into the harness.**
+- Fan-out subagents and agent loops are Claude Code capabilities, model-agnostic — Opus 4.8 gets
+  them all; what Opus lacks is initiative, supplied by CLAUDE.md trigger rules.
+- Codex/Gemini serve as callable single workers (review, second opinions), never as the orchestrator.
+- The residual (single-shot reasoning depth) is bought back with token redundancy: higher effort,
+  judge panels, multi-round adversarial review.
+- Prompt craft (rationalization-alarm table, evidence-gate phrasing, SessionStart injection) is
+  absorbed from [obra/superpowers](https://github.com/obra/superpowers) — a refined prompt layer
+  on which this kit adds the deterministic layer it lacks (JS workflows + schemas + journaling).
 
-- 提詞管品質與風格;**不可妥協的環節(驗證次數、投票、預算、危險指令)一律下沉到 harness**。
-- Fan-out subagent 與 agent loop 是 Claude Code harness 的能力,模型無關,Opus 4.8 全可用;
-  Opus 缺的只是主動性,由 CLAUDE.md 的觸發規則補上。
-- Codex/Gemini 只當被呼叫的單體 worker(審查、第二意見),不當編排層。
-- 殘差(單發推理深度)用 token 冗餘買回:effort 調高、judge panel、多輪對抗。
-- 提詞工藝(合理化警報表、證據閘門措辭、SessionStart 注入)吸收自
-  [obra/superpowers](https://github.com/obra/superpowers);
-  它是精緻的提詞層,本套件在其上補了它沒有的確定性層(JS workflow + schema + 落盤)。
+Full discussion: `docs/HARNESS.md`. How this kit was built (method + real evidence chains):
+`docs/METHOD.md`.
 
-詳細論述見 `docs/HARNESS.md`。
+## License
+
+MIT — see [LICENSE](LICENSE).

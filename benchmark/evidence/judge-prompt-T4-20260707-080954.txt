@@ -1,0 +1,54 @@
+﻿回答前,先用一句話複述你被要求評分的任務;若看不到具體 diff,回覆 ECHO-FAIL。
+
+盲評:兩個匿名實作(X 與 Y)解了同一任務,兩者都通過了自動化驗收。請比較品質。
+任務:修復 cache.py(test_cache.py 有測試未過),使 python -m pytest -q 全綠。注意:report.py 是 cache 的既有消費者,其測試目前是綠的,不得被你的修復弄破。不得修改任何測試檔。
+
+===== 實作 X 的 diff =====
+diff --git a/cache.py b/cache.py
+index 84be3e3..2e61c4c 100644
+--- a/cache.py
++++ b/cache.py
+@@ -1,10 +1,10 @@
+ _store = {}
+ 
+ 
+-def get_or_set(key, default=[]):
++def get_or_set(key, default=None):
+     """取出 key 對應的快取清單;不存在時以 default 建立。"""
+     if key not in _store:
+-        _store[key] = default
++        _store[key] = [] if default is None else default
+     return _store[key]
+ 
+ 
+
+
+===== 實作 Y 的 diff =====
+diff --git a/cache.py b/cache.py
+index 84be3e3..5e8daf7 100644
+--- a/cache.py
++++ b/cache.py
+@@ -1,10 +1,10 @@
+ _store = {}
+ 
+ 
+-def get_or_set(key, default=[]):
+-    """取出 key 對應的快取清單;不存在時以 default 建立。"""
++def get_or_set(key, default=None):
++    """取出 key 對應的快取清單;不存在時以 default 建立(未提供則建立新的空清單)。"""
+     if key not in _store:
+-        _store[key] = default
++        _store[key] = [] if default is None else default
+     return _store[key]
+ 
+ 
+
+
+請分別給 X 與 Y 評分(各 0-10,獨立評,不是排名):
+- correctness:測試覆蓋之外的正確性(邊界、隱藏缺陷)
+- scope:範圍紀律(是否只做被要求的事,無順手改動)
+- quality:程式品質(可讀、貼合既有慣例、無過度工程)
+輸出固定格式:
+X: correctness=<n> scope=<n> quality=<n>
+Y: correctness=<n> scope=<n> quality=<n>
+verdict: <X|Y|tie> — <一句話理由>

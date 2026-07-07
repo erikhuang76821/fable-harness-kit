@@ -1,0 +1,6 @@
+﻿我被要求評分的任務是：評估將 `users.py` 與 `orders.py` 中重複的 email 驗證邏輯提取至新模組 `validators.py` 並改為匯入使用的重構實作，要求行為不變且不得有預期外的修改。
+
+X: correctness=10 scope=10 quality=10
+Y: correctness=10 scope=10 quality=10
+verdict: tie — 兩者的 diff 完全相同，皆精準且完美地完成了重構要求，無任何多餘改動。
+

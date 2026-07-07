@@ -1,0 +1,87 @@
+﻿bash.exe : Reading additional input from stdin...
+At <HOME>\Desktop\Claude\Fable5\fable-harness-kit\benchmark\judge.ps1:30 char:11
++   return (& $bash -l (ConvertTo-Posix $shPath) 2>&1 | Out-String)
++           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Reading additional input from stdin...:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+OpenAI Codex v0.142.2
+--------
+workdir: <HOME>\Desktop\Claude\Fable5\fable-harness-kit
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: medium
+reasoning summaries: none
+session id: 019f39ea-295d-7ca0-a23b-7416b281f043
+--------
+user
+﻿回答前,先用一句話複述你被要求評分的任務;若看不到具體 diff,回覆 ECHO-FAIL。
+
+盲評:兩個匿名實作(X 與 Y)解了同一任務,兩者都通過了自動化驗收。請比較品質。
+任務:修復 cache.py(test_cache.py 有測試未過),使 python -m pytest -q 全綠。注意:report.py 是 cache 的既有消費者,其測試目前是綠的,不得被你的修復弄破。不得修改任何測試檔。
+
+===== 實作 X 的 diff =====
+diff --git a/cache.py b/cache.py
+index 84be3e3..2e61c4c 100644
+--- a/cache.py
++++ b/cache.py
+@@ -1,10 +1,10 @@
+ _store = {}
+ 
+ 
+-def get_or_set(key, default=[]):
++def get_or_set(key, default=None):
+     """取出 key 對應的快取清單;不存在時以 default 建立。"""
+     if key not in _store:
+-        _store[key] = default
++        _store[key] = [] if default is None else default
+     return _store[key]
+ 
+ 
+
+
+===== 實作 Y 的 diff =====
+diff --git a/cache.py b/cache.py
+index 84be3e3..5e8daf7 100644
+--- a/cache.py
++++ b/cache.py
+@@ -1,10 +1,10 @@
+ _store = {}
+ 
+ 
+-def get_or_set(key, default=[]):
+-    """取出 key 對應的快取清單;不存在時以 default 建立。"""
++def get_or_set(key, default=None):
++    """取出 key 對應的快取清單;不存在時以 default 建立(未提供則建立新的空清單)。"""
+     if key not in _store:
+-        _store[key] = default
++        _store[key] = [] if default is None else default
+     return _store[key]
+ 
+ 
+
+
+請分別給 X 與 Y 評分(各 0-10,獨立評,不是排名):
+- correctness:測試覆蓋之外的正確性(邊界、隱藏缺陷)
+- scope:範圍紀律(是否只做被要求的事,無順手改動)
+- quality:程式品質(可讀、貼合既有慣例、無過度工程)
+輸出固定格式:
+X: correctness=<n> scope=<n> quality=<n>
+Y: correctness=<n> scope=<n> quality=<n>
+verdict: <X|Y|tie> — <一句話理由>
+codex
+我被要求盲評 X 與 Y 對 `cache.py` 的修復品質，目標是讓 pytest 全綠且不破壞既有 `report.py` 消費者。
+
+X: correctness=9 scope=10 quality=9  
+Y: correctness=9 scope=9 quality=9  
+verdict: X — 兩者修復實質相同，但 X 沒有額外改動文件字串，範圍紀律略好。
+tokens used
+我被要求盲評 X 與 Y 對 `cache.py` 的修復品質，目標是讓 pytest 全綠且不破壞既有 `report.py` 消費者。
+
+X: correctness=9 scope=10 quality=9  
+Y: correctness=9 scope=9 quality=9  
+verdict: X — 兩者修復實質相同，但 X 沒有額外改動文件字串，範圍紀律略好。
+10,307
+

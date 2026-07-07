@@ -1,0 +1,6 @@
+﻿我被要求的任務是：盲評並比較兩個修復 `cache.py` 預設可變引數 (mutable default argument) 問題的實作 (X 與 Y)，在確保正確性且不破壞既有消費者的前提下，針對其正確性、範圍紀律與程式品質進行評分。
+
+X: correctness=10 scope=10 quality=10
+Y: correctness=10 scope=8 quality=10
+verdict: X — 兩者修復邏輯皆完全正確，但 X 更嚴格地遵守了範圍紀律，未如 Y 般順手修改 docstring（註解的改動雖好，但屬於要求範圍外的順手改動）。
+

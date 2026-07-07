@@ -13,7 +13,7 @@ if (-not (Test-Path $Target -PathType Container)) {
   exit 1
 }
 
-$exclude = @('README.md', 'init.ps1', 'LICENSE')
+$exclude = @('README.md', 'README.zh-TW.md', 'init.ps1', 'LICENSE')
 # benchmark/ 是 kit 的開發材料(對照實驗協議與 fixtures),不是部署物——
 # 且鋪進受測專案會污染 benchmark 公平性(kit 臂看得到題庫與驗收邏輯)
 $excludePrefix = @('benchmark\')

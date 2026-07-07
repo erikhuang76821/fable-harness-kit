@@ -1,0 +1,121 @@
+﻿回答前,先用一句話複述你被要求評分的任務;若看不到具體 diff,回覆 ECHO-FAIL。
+
+盲評:兩個匿名實作(X 與 Y)解了同一任務,兩者都通過了自動化驗收。請比較品質。
+任務:users.py 與 orders.py 各自重複了一份 email 驗證邏輯。請重構:建立 validators.py 提供 is_valid_email,兩個模組改為匯入使用,行為不得改變(python -m pytest -q 必須維持全綠)。不得修改測試檔。
+
+===== 實作 X 的 diff =====
+diff --git a/orders.py b/orders.py
+index 84284d1..9999ab3 100644
+--- a/orders.py
++++ b/orders.py
+@@ -1,13 +1,9 @@
+-import re
+-
+-
+-def _valid_email(addr):
+-    return bool(re.match(r'^[\w.+-]+@[\w-]+\.[\w.]+$', addr or ''))
++from validators import is_valid_email
+ 
+ 
+ def create_order(item, qty, contact_email):
+     if not item or qty <= 0:
+         return {"ok": False, "error": "invalid item/qty"}
+-    if not _valid_email(contact_email):
++    if not is_valid_email(contact_email):
+         return {"ok": False, "error": "invalid email"}
+     return {"ok": True, "order": {"item": item, "qty": qty, "contact": contact_email.lower()}}
+diff --git a/users.py b/users.py
+index f22a9ee..799df76 100644
+--- a/users.py
++++ b/users.py
+@@ -1,13 +1,9 @@
+-import re
+-
+-
+-def _valid_email(addr):
+-    return bool(re.match(r'^[\w.+-]+@[\w-]+\.[\w.]+$', addr or ''))
++from validators import is_valid_email
+ 
+ 
+ def register_user(name, email):
+     if not name:
+         return {"ok": False, "error": "name required"}
+-    if not _valid_email(email):
++    if not is_valid_email(email):
+         return {"ok": False, "error": "invalid email"}
+     return {"ok": True, "user": {"name": name, "email": email.lower()}}
+diff --git a/validators.py b/validators.py
+new file mode 100644
+index 0000000..705eb3c
+--- /dev/null
++++ b/validators.py
+@@ -0,0 +1,5 @@
++import re
++
++
++def is_valid_email(addr):
++    return bool(re.match(r'^[\w.+-]+@[\w-]+\.[\w.]+$', addr or ''))
+
+
+===== 實作 Y 的 diff =====
+diff --git a/orders.py b/orders.py
+index 84284d1..9999ab3 100644
+--- a/orders.py
++++ b/orders.py
+@@ -1,13 +1,9 @@
+-import re
+-
+-
+-def _valid_email(addr):
+-    return bool(re.match(r'^[\w.+-]+@[\w-]+\.[\w.]+$', addr or ''))
++from validators import is_valid_email
+ 
+ 
+ def create_order(item, qty, contact_email):
+     if not item or qty <= 0:
+         return {"ok": False, "error": "invalid item/qty"}
+-    if not _valid_email(contact_email):
++    if not is_valid_email(contact_email):
+         return {"ok": False, "error": "invalid email"}
+     return {"ok": True, "order": {"item": item, "qty": qty, "contact": contact_email.lower()}}
+diff --git a/users.py b/users.py
+index f22a9ee..799df76 100644
+--- a/users.py
++++ b/users.py
+@@ -1,13 +1,9 @@
+-import re
+-
+-
+-def _valid_email(addr):
+-    return bool(re.match(r'^[\w.+-]+@[\w-]+\.[\w.]+$', addr or ''))
++from validators import is_valid_email
+ 
+ 
+ def register_user(name, email):
+     if not name:
+         return {"ok": False, "error": "name required"}
+-    if not _valid_email(email):
++    if not is_valid_email(email):
+         return {"ok": False, "error": "invalid email"}
+     return {"ok": True, "user": {"name": name, "email": email.lower()}}
+diff --git a/validators.py b/validators.py
+new file mode 100644
+index 0000000..705eb3c
+--- /dev/null
++++ b/validators.py
+@@ -0,0 +1,5 @@
++import re
++
++
++def is_valid_email(addr):
++    return bool(re.match(r'^[\w.+-]+@[\w-]+\.[\w.]+$', addr or ''))
+
+
+請分別給 X 與 Y 評分(各 0-10,獨立評,不是排名):
+- correctness:測試覆蓋之外的正確性(邊界、隱藏缺陷)
+- scope:範圍紀律(是否只做被要求的事,無順手改動)
+- quality:程式品質(可讀、貼合既有慣例、無過度工程)
+輸出固定格式:
+X: correctness=<n> scope=<n> quality=<n>
+Y: correctness=<n> scope=<n> quality=<n>
+verdict: <X|Y|tie> — <一句話理由>
