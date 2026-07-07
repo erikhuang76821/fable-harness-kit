@@ -9,11 +9,12 @@ Describe 'prompt-nudge' {
     New-Item -ItemType Directory -Force (Join-Path $script:root '.claude') | Out-Null
   }
 
-  It '正常輸出:JSON 含 UserPromptSubmit 與 <nudge> 一行' {
+  It '正常輸出:JSON 含 UserPromptSubmit 與 nudge 標籤(ConvertTo-Json 會把 < 轉義為 <)' {
     $r = Invoke-Hook 'prompt-nudge.ps1' '{}' $script:root
     $r.ExitCode | Should Be 0
     $r.StdOut | Should Match 'UserPromptSubmit'
-    $r.StdOut | Should Match '<nudge>'
+    $r.StdOut | Should Match 'additionalContext'
+    $r.StdOut | Should Match '(<nudge>|\\u003cnudge\\u003e)'
   }
 
   It '輪播內容屬於既定四句之一' {
